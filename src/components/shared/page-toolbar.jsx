@@ -6,9 +6,19 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+
+function filterLabel(filter) {
+  return typeof filter === "string" ? filter : filter.label
+}
+
+function filterValue(filter) {
+  return typeof filter === "string" ? filter : filter.value
+}
 
 export function PageToolbar({
   searchPlaceholder = "Filter...",
@@ -16,6 +26,10 @@ export function PageToolbar({
   paymentFilters = [],
   showDatePicker = true,
   showExport = true,
+  searchValue = "",
+  onSearchChange,
+  selectedStatus = "",
+  onStatusChange,
 }) {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -28,24 +42,48 @@ export function PageToolbar({
         )}
         <div className="relative min-w-[200px] flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder={searchPlaceholder} className="h-9 pl-9" />
+          <Input
+            placeholder={searchPlaceholder}
+            className="h-9 pl-9"
+            value={onSearchChange ? searchValue : undefined}
+            onChange={onSearchChange ? (event) => onSearchChange(event.target.value) : undefined}
+          />
         </div>
         {statusFilters.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-9 gap-1 border-dashed">
                 <Plus className="h-4 w-4" />
-                Status
+                {selectedStatus
+                  ? filterLabel(
+                      statusFilters.find((filter) => filterValue(filter) === selectedStatus) ||
+                        selectedStatus
+                    )
+                  : "Status"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {statusFilters.map((filter) => (
-                <DropdownMenuCheckboxItem key={filter} defaultChecked>
-                  {filter}
-                </DropdownMenuCheckboxItem>
-              ))}
+              {onStatusChange ? (
+                <DropdownMenuRadioGroup
+                  value={selectedStatus || "all"}
+                  onValueChange={(value) => onStatusChange(value === "all" ? "" : value)}
+                >
+                  <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                  {statusFilters.map((filter) => (
+                    <DropdownMenuRadioItem key={filterValue(filter)} value={filterValue(filter)}>
+                      {filterLabel(filter)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              ) : (
+                statusFilters.map((filter) => (
+                  <DropdownMenuCheckboxItem key={filterValue(filter)} defaultChecked>
+                    {filterLabel(filter)}
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

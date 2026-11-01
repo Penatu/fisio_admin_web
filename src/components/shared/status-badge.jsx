@@ -19,7 +19,8 @@ export function StatusBadge({ status }) {
     suspended: { label: "Suspended", variant: "destructive", dot: "bg-red-500" },
   }
 
-  const key = status?.toLowerCase().replace(/[_-]+/g, " ")
+  const normalized = status?.toLowerCase().replace(/[_-]+/g, " ")
+  const key = normalized === "innactive" ? "inactive" : normalized
   const item = config[key] || config.pending
 
   return (
