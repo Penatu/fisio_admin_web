@@ -1,45 +1,34 @@
 import { useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
 import { Eye, EyeOff, HeartPulse, Loader2 } from "lucide-react"
-import { useAuth } from "@/context/auth-context"
-import { STATIC_USERS } from "@/lib/auth-data"
+import { useLogin } from "@/hooks/use-login"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
+const DEMO_ACCOUNT = {
+  email: "superadmin@phisiobook.local",
+  password: "SuperAdmin123!",
+  name: "Super Admin",
+  role: "SUPERADMIN",
+}
+
 export default function LoginPage() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { login } = useAuth()
+  const { login, isSubmitting, error, clearError } = useLogin()
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const from = location.state?.from?.pathname || "/"
 
   const handleSubmit = async (event) => {
     event.preventDefault()
-    setError("")
-    setIsSubmitting(true)
-
-    try {
-      await login(email, password)
-      navigate(from, { replace: true })
-    } catch (err) {
-      setError(err.message || "Login gagal. Silakan coba lagi.")
-    } finally {
-      setIsSubmitting(false)
-    }
+    await login(email, password)
   }
 
-  const fillDemo = (user) => {
-    setEmail(user.email)
-    setPassword(user.password)
-    setError("")
+  const fillDemo = () => {
+    setEmail(DEMO_ACCOUNT.email)
+    setPassword(DEMO_ACCOUNT.password)
+    clearError()
   }
 
   return (
@@ -96,7 +85,7 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="admin@fisiobook.com"
+                    placeholder="superadmin@phisiobook.local"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -157,22 +146,17 @@ export default function LoginPage() {
               <p className="text-xs text-muted-foreground">
                 Klik salah satu akun di bawah untuk mengisi form secara otomatis.
               </p>
-              <div className="space-y-2">
-                {STATIC_USERS.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => fillDemo(user)}
-                    className="flex w-full items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                  >
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground">{user.role}</span>
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={fillDemo}
+                className="flex w-full items-center justify-between rounded-lg border bg-muted/40 px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+              >
+                <div>
+                  <p className="font-medium">{DEMO_ACCOUNT.name}</p>
+                  <p className="text-xs text-muted-foreground">{DEMO_ACCOUNT.email}</p>
+                </div>
+                <span className="text-xs text-muted-foreground">{DEMO_ACCOUNT.role}</span>
+              </button>
             </CardContent>
           </Card>
         </div>

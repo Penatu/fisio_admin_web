@@ -21,7 +21,7 @@ export default function TherapistsPage() {
   const columns = [
     {
       key: "name",
-      label: "Therapist",
+      label: "Name",
       render: (row) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
@@ -35,9 +35,12 @@ export default function TherapistsPage() {
     },
     { key: "email", label: "Email" },
     { key: "phone", label: "Phone" },
-    { key: "specialty", label: "Specialty" },
-    { key: "experience", label: "Experience" },
-    { key: "rating", label: "Rating", render: (row) => `⭐ ${row.rating}` },
+    { key: "address", label: "Address" },
+    {
+      key: "registeredAt",
+      label: "Registered At",
+      render: (row) => row.registeredAt || row.joinedAt || "-",
+    },
     { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
     {
       key: "actions",
@@ -70,7 +73,7 @@ export default function TherapistsPage() {
       title="Therapist Management"
       stats={stats}
       searchPlaceholder="Filter therapists..."
-      statusFilters={["Active", "Inactive", "Pending"]}
+      statusFilters={["Inactive", "Active", "In Review", "Rejected"]}
       columns={columns}
       data={therapists}
       onRowClick={(row) => goToDetail(row.id)}

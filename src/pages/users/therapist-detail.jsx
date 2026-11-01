@@ -107,10 +107,10 @@ function buildScheduleWeeks(schedule) {
 }
 
 const STATUS_OPTIONS = [
-  { value: "active", label: "Active", dot: "bg-emerald-500" },
-  { value: "pending", label: "Pending", dot: "bg-amber-500" },
   { value: "inactive", label: "Inactive", dot: "bg-gray-400" },
-  { value: "declined", label: "Declined", dot: "bg-red-500" },
+  { value: "active", label: "Active", dot: "bg-emerald-500" },
+  { value: "in_review", label: "In Review", dot: "bg-amber-500" },
+  { value: "rejected", label: "Rejected", dot: "bg-red-500" },
 ]
 
 function initials(name) {
@@ -210,7 +210,7 @@ const emptyForm = {
   location: "",
   specialty: "",
   experience: "",
-  status: "pending",
+  status: "in_review",
   declineNotes: "",
 }
 
@@ -250,7 +250,7 @@ export default function TherapistDetailPage() {
     therapist.specialty = form.specialty
     therapist.experience = form.experience
     therapist.status = form.status
-    therapist.declineNotes = form.status === "declined" ? form.declineNotes.trim() : ""
+    therapist.declineNotes = form.status === "rejected" ? form.declineNotes.trim() : ""
     setEditOpen(false)
   }
 
@@ -314,7 +314,7 @@ export default function TherapistDetailPage() {
     printWindow.document.close()
   }
 
-  const declineNotesRequired = form.status === "declined"
+  const declineNotesRequired = form.status === "rejected"
   const canSave =
     form.name.trim() &&
     form.email.trim() &&
@@ -395,7 +395,7 @@ export default function TherapistDetailPage() {
         </CardContent>
       </Card>
 
-      {therapist.status === "declined" && therapist.declineNotes ? (
+      {therapist.status === "rejected" && therapist.declineNotes ? (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div>
@@ -989,20 +989,20 @@ export default function TherapistDetailPage() {
               </div>
             </div>
 
-            {form.status === "declined" ? (
+            {form.status === "rejected" ? (
               <div className="space-y-2">
                 <Label htmlFor="edit-decline-notes">
                   Catatan Penolakan <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   id="edit-decline-notes"
-                  placeholder="Jelaskan alasan mengubah status menjadi declined..."
+                  placeholder="Jelaskan alasan mengubah status menjadi rejected..."
                   value={form.declineNotes}
                   onChange={(e) => updateField("declineNotes", e.target.value)}
                 />
                 {!form.declineNotes.trim() ? (
                   <p className="text-xs text-destructive">
-                    Catatan wajib diisi untuk status declined.
+                    Catatan wajib diisi untuk status rejected.
                   </p>
                 ) : null}
               </div>

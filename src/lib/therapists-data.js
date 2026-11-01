@@ -352,7 +352,7 @@ export const therapists = [
     specialty: "Pediatric Physio",
     experience: "5 years",
     rating: "4.6",
-    status: "pending",
+    status: "in_review",
     joinedAt: "05 Feb 2024",
     location: "Yogyakarta",
     address: "Jl. Kaliurang KM 5.5, Sleman, Yogyakarta",

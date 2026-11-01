@@ -1,49 +1,76 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
-import { AUTH_STORAGE_KEY, validateCredentials } from "@/lib/auth-data"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  buildSessionUser,
+  isTokenExpired,
+} from "@/lib/auth-data"
 
 const AuthContext = createContext(null)
 
+function clearStoredSession() {
+  localStorage.removeItem(AUTH_USER_KEY)
+  localStorage.removeItem(AUTH_TOKEN_KEY)
+}
+
+function readStoredSession() {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY)
+  const rawUser = localStorage.getItem(AUTH_USER_KEY)
+
+  if (!token || !rawUser || isTokenExpired(token)) {
+    clearStoredSession()
+    return { user: null, token: null }
+  }
+
+  try {
+    return { user: JSON.parse(rawUser), token }
+  } catch {
+    clearStoredSession()
+    return { user: null, token: null }
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const stored = localStorage.getItem(AUTH_STORAGE_KEY)
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored))
-      } catch {
-        localStorage.removeItem(AUTH_STORAGE_KEY)
-      }
-    }
+    const session = readStoredSession()
+    setUser(session.user)
+    setToken(session.token)
     setIsLoading(false)
   }, [])
 
-  const login = async (email, password) => {
-    const authenticatedUser = validateCredentials(email, password)
-    if (!authenticatedUser) {
-      throw new Error("Email atau password salah.")
+  const setSession = useCallback((data) => {
+    if (!data?.token) {
+      throw new Error("Token tidak ditemukan.")
     }
 
-    setUser(authenticatedUser)
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authenticatedUser))
-    return authenticatedUser
-  }
+    const sessionUser = buildSessionUser(data)
+    setUser(sessionUser)
+    setToken(data.token)
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(sessionUser))
+    localStorage.setItem(AUTH_TOKEN_KEY, data.token)
+    return sessionUser
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null)
-    localStorage.removeItem(AUTH_STORAGE_KEY)
-  }
+    setToken(null)
+    clearStoredSession()
+  }, [])
 
   const value = useMemo(
     () => ({
       user,
+      token,
       isLoading,
-      isAuthenticated: Boolean(user),
-      login,
+      isAuthenticated: Boolean(user && token),
+      setSession,
       logout,
     }),
-    [user, isLoading]
+    [user, token, isLoading, setSession, logout]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

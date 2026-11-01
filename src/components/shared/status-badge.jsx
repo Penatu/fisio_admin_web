@@ -4,6 +4,8 @@ export function StatusBadge({ status }) {
   const config = {
     active: { label: "Active", variant: "success", dot: "bg-emerald-500" },
     inactive: { label: "Inactive", variant: "secondary", dot: "bg-gray-400" },
+    "in review": { label: "In Review", variant: "warning", dot: "bg-amber-500" },
+    rejected: { label: "Rejected", variant: "destructive", dot: "bg-red-500" },
     pending: { label: "Pending", variant: "warning", dot: "bg-amber-500" },
     declined: { label: "Declined", variant: "destructive", dot: "bg-red-500" },
     new: { label: "New", variant: "success", dot: "bg-emerald-500" },
@@ -17,7 +19,8 @@ export function StatusBadge({ status }) {
     suspended: { label: "Suspended", variant: "destructive", dot: "bg-red-500" },
   }
 
-  const item = config[status?.toLowerCase()] || config.pending
+  const key = status?.toLowerCase().replace(/[_-]+/g, " ")
+  const item = config[key] || config.pending
 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-0.5 text-xs font-medium">

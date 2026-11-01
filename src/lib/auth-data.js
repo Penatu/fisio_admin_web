@@ -1,33 +1,35 @@
-export const STATIC_USERS = [
-  {
-    id: 1,
-    email: "admin@fisiobook.com",
-    password: "admin123",
-    name: "Admin Utama",
-    role: "Super Admin",
-    initials: "AU",
-  },
-  {
-    id: 2,
-    email: "branch@fisiobook.com",
-    password: "branch123",
-    name: "Rina Wijaya",
-    role: "Branch Admin",
-    initials: "RW",
-  },
-]
+export const AUTH_USER_KEY = "fisiobook_auth_user"
+export const AUTH_TOKEN_KEY = "fisiobook_auth_token"
 
-export const AUTH_STORAGE_KEY = "fisiobook_auth_user"
+export function decodeTokenPayload(token) {
+  if (!token || typeof token !== "string") return null
 
-export function validateCredentials(email, password) {
-  const user = STATIC_USERS.find(
-    (item) =>
-      item.email.toLowerCase() === email.toLowerCase().trim() &&
-      item.password === password
-  )
+  const [, payload] = token.split(".")
+  if (!payload) return null
 
-  if (!user) return null
+  try {
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/")
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=")
+    return JSON.parse(atob(padded))
+  } catch {
+    return null
+  }
+}
 
-  const { password: _, ...safeUser } = user
-  return safeUser
+export function isTokenExpired(token) {
+  const payload = decodeTokenPayload(token)
+  if (!payload?.exp) return false
+  return payload.exp * 1000 <= Date.now()
+}
+
+export function buildSessionUser(data) {
+  const claims = decodeTokenPayload(data?.token) || {}
+
+  return {
+    email: data?.email || claims.email || "",
+    code: data?.code || "",
+    isVerified: Boolean(data?.isVerified),
+    role: claims.roleName || "",
+    userId: claims.userId || "",
+  }
 }
