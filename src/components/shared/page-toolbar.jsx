@@ -30,6 +30,8 @@ export function PageToolbar({
   onSearchChange,
   selectedStatus = "",
   onStatusChange,
+  selectedPayment = "",
+  onPaymentChange,
 }) {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -92,17 +94,36 @@ export function PageToolbar({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="h-9 gap-1 border-dashed">
                 <Plus className="h-4 w-4" />
-                Payment Status
+                {selectedPayment
+                  ? filterLabel(
+                      paymentFilters.find((filter) => filterValue(filter) === selectedPayment) ||
+                        selectedPayment
+                    )
+                  : "Payment Status"}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
               <DropdownMenuLabel>Payment Status</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {paymentFilters.map((filter) => (
-                <DropdownMenuCheckboxItem key={filter} defaultChecked>
-                  {filter}
-                </DropdownMenuCheckboxItem>
-              ))}
+              {onPaymentChange ? (
+                <DropdownMenuRadioGroup
+                  value={selectedPayment || "all"}
+                  onValueChange={(value) => onPaymentChange(value === "all" ? "" : value)}
+                >
+                  <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                  {paymentFilters.map((filter) => (
+                    <DropdownMenuRadioItem key={filterValue(filter)} value={filterValue(filter)}>
+                      {filterLabel(filter)}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              ) : (
+                paymentFilters.map((filter) => (
+                  <DropdownMenuCheckboxItem key={filterValue(filter)} defaultChecked>
+                    {filterLabel(filter)}
+                  </DropdownMenuCheckboxItem>
+                ))
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

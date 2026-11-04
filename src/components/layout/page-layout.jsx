@@ -32,6 +32,8 @@ export function PageLayout({
   onSearchChange,
   selectedStatus,
   onStatusChange,
+  selectedPayment,
+  onPaymentChange,
   pagination,
 }) {
   return (
@@ -61,6 +63,8 @@ export function PageLayout({
             onSearchChange={onSearchChange}
             selectedStatus={selectedStatus}
             onStatusChange={onStatusChange}
+            selectedPayment={selectedPayment}
+            onPaymentChange={onPaymentChange}
           />
         </CardContent>
       </Card>

@@ -1,50 +1,100 @@
-import { useNavigate } from "react-router-dom"
-import { CheckCircle, Clock, Eye, Pencil, Star, Users } from "lucide-react"
-import { PageLayout } from "@/components/layout/page-layout"
-import { StatusBadge } from "@/components/shared/status-badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { useGetTherapist } from "@/pages/users/hooks/useGetTherapist"
+import { useNavigate } from "react-router-dom";
+import { CheckCircle, Clock, Eye, Pencil, Star, Users } from "lucide-react";
+import { PageLayout } from "@/components/layout/page-layout";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { useGetTherapist } from "@/pages/users/hooks/useGetTherapist";
 
 const stats = [
-  { title: "Total Therapists", value: "48", description: "42 active, 6 inactive", icon: Users },
-  { title: "Available Today", value: "32", description: "67% availability rate", icon: CheckCircle },
-  { title: "Avg. Rating", value: "4.8", description: "Based on 1,240 reviews", icon: Star },
-  { title: "Pending Verification", value: "5", description: "Awaiting document review", icon: Clock },
-]
+  {
+    title: "Total Therapists",
+    value: "48",
+    description: "42 active, 6 inactive",
+    icon: Users,
+  },
+  {
+    title: "Available Today",
+    value: "32",
+    description: "67% availability rate",
+    icon: CheckCircle,
+  },
+  {
+    title: "Avg. Rating",
+    value: "4.8",
+    description: "Based on 1,240 reviews",
+    icon: Star,
+  },
+  {
+    title: "Pending Verification",
+    value: "5",
+    description: "Awaiting document review",
+    icon: Clock,
+  },
+];
 
 const STATUS_FILTERS = [
   { label: "Inactive", value: "inactive" },
   { label: "Active", value: "active" },
   { label: "In Review", value: "in_review" },
   { label: "Rejected", value: "rejected" },
-]
+];
 
 function displayValue(value) {
-  return value?.trim() ? value : "-"
+  return value?.trim() ? value : "-";
+}
+
+function practiceLocations(address) {
+  if (!address) return [];
+
+  let value = address;
+  if (typeof address === "string") {
+    const trimmed = address.trim();
+    if (!trimmed) return [];
+    try {
+      value = JSON.parse(trimmed);
+    } catch {
+      return [trimmed];
+    }
+  }
+
+  if (Array.isArray(value?.practiceLocations)) {
+    return value.practiceLocations
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value?.fullAddress === "string" && value.fullAddress.trim()) {
+    return [value.fullAddress.trim()];
+  }
+
+  return [];
 }
 
 function nameInitials(name, email) {
-  const parts = (name || "").trim().split(/\s+/).filter(Boolean)
-  const source = parts.length > 1 ? parts.slice(1) : parts
-  const letters = source.map((part) => part[0]).join("").slice(0, 2)
-  if (letters) return letters.toUpperCase()
-  return (email || "?").slice(0, 1).toUpperCase()
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  const source = parts.length > 1 ? parts.slice(1) : parts;
+  const letters = source
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2);
+  if (letters) return letters.toUpperCase();
+  return (email || "?").slice(0, 1).toUpperCase();
 }
 
 function formatRegisteredAt(value) {
-  if (!value) return "-"
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 export default function TherapistsPage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const {
     therapists,
     pagination,
@@ -56,9 +106,9 @@ export default function TherapistsPage() {
     setLatestStatus,
     setPage,
     setPerPage,
-  } = useGetTherapist()
+  } = useGetTherapist();
 
-  const goToDetail = (code) => navigate(`/users/therapists/${code}`)
+  const goToDetail = (code) => navigate(`/users/therapists/${code}`);
 
   const columns = [
     {
@@ -77,18 +127,39 @@ export default function TherapistsPage() {
     },
     { key: "email", label: "Email", render: (row) => displayValue(row.email) },
     { key: "phone", label: "Phone", render: (row) => displayValue(row.phone) },
-    { key: "address", label: "Address", render: (row) => displayValue(row.address) },
+    {
+      key: "address",
+      label: "Practice Address",
+      render: (row) => {
+        const locations = practiceLocations(row.address);
+        if (!locations.length) return "-";
+        return (
+          <div className="flex flex-col gap-1">
+            {locations.map((location) => (
+              <span key={location}>{location}</span>
+            ))}
+          </div>
+        );
+      },
+    },
     {
       key: "registeredAt",
       label: "Registered At",
       render: (row) => formatRegisteredAt(row.registeredAt),
     },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge status={row.status} />,
+    },
     {
       key: "actions",
       label: "Action",
       render: (row) => (
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Button
             variant="ghost"
             size="icon"
@@ -108,7 +179,7 @@ export default function TherapistsPage() {
         </div>
       ),
     },
-  ]
+  ];
 
   return (
     <PageLayout
@@ -133,5 +204,5 @@ export default function TherapistsPage() {
         onPerPageChange: setPerPage,
       }}
     />
-  )
+  );
 }

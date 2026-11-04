@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Award,
@@ -21,17 +21,19 @@ import {
   MapPin,
   Pencil,
   Phone,
+  Loader2,
   Star,
   StickyNote,
   User,
   Users,
-} from "lucide-react"
-import { getTherapistById } from "@/lib/therapists-data"
-import { cn } from "@/lib/utils"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+} from "lucide-react";
+import { useGetTherapistDetail } from "@/pages/users/hooks/useGetTherapistDetail";
+import { useUpdateTherapistStatus } from "@/pages/users/hooks/useUpdateTherapistStatus";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -39,7 +41,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import {
   Sheet,
   SheetBody,
@@ -48,11 +50,10 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-} from "@/components/ui/sheet"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from "@/components/ui/sheet";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -60,65 +61,110 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table"
-import { StatusBadge } from "@/components/shared/status-badge"
+} from "@/components/ui/table";
+import { StatusBadge } from "@/components/shared/status-badge";
 
-const DAY_ORDER = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"]
+const DAY_ORDER = [
+  "Senin",
+  "Selasa",
+  "Rabu",
+  "Kamis",
+  "Jumat",
+  "Sabtu",
+  "Minggu",
+];
 
 function formatShortDate(date) {
-  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" })
+  return date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
 }
 
-function buildScheduleWeeks(schedule) {
-  const now = new Date()
-  const dow = now.getDay()
-  const diffToMonday = (dow + 6) % 7
-  const monday = new Date(now)
-  monday.setHours(0, 0, 0, 0)
-  monday.setDate(now.getDate() - diffToMonday)
+function parseScheduleDate(value) {
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
 
-  return Array.from({ length: 3 }).map((_, weekIndex) => {
-    const weekStart = new Date(monday)
-    weekStart.setDate(monday.getDate() + weekIndex * 7)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekStart.getDate() + 6)
+function startOfWeek(date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  const diffToMonday = (copy.getDay() + 6) % 7;
+  copy.setDate(copy.getDate() - diffToMonday);
+  return copy;
+}
 
+function toISODate(date) {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function weekTitle(weekStart) {
+  const diffWeeks = Math.round(
+    (weekStart.getTime() - startOfWeek(new Date()).getTime()) / 604800000,
+  );
+  if (diffWeeks === 0) return "Minggu Ini";
+  if (diffWeeks === 1) return "Minggu Depan";
+  if (diffWeeks === 2) return "2 Minggu Lagi";
+  return `Minggu ${formatShortDate(weekStart)}`;
+}
+
+function buildScheduleWeeks(scheduleDates) {
+  const dates = scheduleDates.map(parseScheduleDate).filter(Boolean);
+  if (!dates.length) return [];
+
+  const scheduled = new Set(scheduleDates);
+  let weekStart = startOfWeek(new Date(Math.min(...dates.map((date) => date.getTime()))));
+  const lastWeek = startOfWeek(new Date(Math.max(...dates.map((date) => date.getTime()))));
+  const weeks = [];
+
+  while (weekStart <= lastWeek) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
     const days = DAY_ORDER.map((dayName, dayIndex) => {
-      const date = new Date(weekStart)
-      date.setDate(weekStart.getDate() + dayIndex)
-      const slot = schedule.find((s) => s.day === dayName)
-      const isToday = date.toDateString() === new Date().toDateString()
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + dayIndex);
+      const iso = toISODate(date);
       return {
         dayName,
         dateLabel: formatShortDate(date),
-        hours: slot?.hours ?? "Libur",
-        available: slot?.available ?? false,
-        isToday,
-      }
-    })
+        scheduled: scheduled.has(iso),
+        isToday: date.toDateString() === new Date().toDateString(),
+      };
+    });
 
-    const labels = ["Minggu Ini", "Minggu Depan", "2 Minggu Lagi"]
-    return {
-      label: labels[weekIndex],
+    weeks.push({
+      key: toISODate(weekStart),
+      label: weekTitle(weekStart),
       range: `${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`,
       days,
-    }
-  })
+    });
+
+    weekStart = new Date(weekStart);
+    weekStart.setDate(weekStart.getDate() + 7);
+  }
+
+  return weeks;
 }
 
 const STATUS_OPTIONS = [
-  { value: "inactive", label: "Inactive", dot: "bg-gray-400" },
   { value: "active", label: "Active", dot: "bg-emerald-500" },
-  { value: "in_review", label: "In Review", dot: "bg-amber-500" },
   { value: "rejected", label: "Rejected", dot: "bg-red-500" },
-]
+];
 
-function initials(name) {
-  return name
-    .split(" ")
-    .slice(1)
-    .map((n) => n[0])
+function initials(name, email) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  const source = parts.length > 1 ? parts.slice(1) : parts;
+  const letters = source
+    .map((part) => part[0])
     .join("")
+    .slice(0, 2);
+  if (letters) return letters.toUpperCase();
+  return (email || "?").slice(0, 1).toUpperCase();
+}
+
+function displayValue(value) {
+  if (value == null) return "";
+  return String(value).trim();
 }
 
 function InfoRow({ icon: Icon, label, value }) {
@@ -132,7 +178,7 @@ function InfoRow({ icon: Icon, label, value }) {
         <p className="text-sm font-medium">{value}</p>
       </div>
     </div>
-  )
+  );
 }
 
 function DocumentRow({ icon: Icon, label, value, onView }) {
@@ -151,12 +197,20 @@ function DocumentRow({ icon: Icon, label, value, onView }) {
       </div>
       <Eye className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
     </button>
-  )
+  );
 }
 
-function TimelineList({ items, emptyLabel, primaryKey, secondaryKey, metaKey }) {
+function TimelineList({
+  items,
+  emptyLabel,
+  primaryKey,
+  secondaryKey,
+  metaKey,
+  noteKey,
+  onView,
+}) {
   if (!items?.length) {
-    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
   }
 
   return (
@@ -166,13 +220,31 @@ function TimelineList({ items, emptyLabel, primaryKey, secondaryKey, metaKey }) 
           <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">{item[primaryKey]}</p>
-            <p className="text-sm text-muted-foreground">{item[secondaryKey]}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{item[metaKey]}</p>
+            <p className="text-sm text-muted-foreground">
+              {item[secondaryKey]}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {item[metaKey]}
+            </p>
+            {noteKey && item[noteKey] ? (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {item[noteKey]}
+              </p>
+            ) : null}
+            {item.fileUrl && onView ? (
+              <button
+                type="button"
+                onClick={() => onView(item)}
+                className="mt-1 text-xs font-medium text-primary hover:underline"
+              >
+                Lihat dokumen
+              </button>
+            ) : null}
           </div>
         </div>
       ))}
     </div>
-  )
+  );
 }
 
 function SoapSection({ label, value }) {
@@ -183,7 +255,7 @@ function SoapSection({ label, value }) {
       </p>
       <p className="text-sm leading-relaxed">{value || "-"}</p>
     </div>
-  )
+  );
 }
 
 function StarRating({ value }) {
@@ -200,7 +272,7 @@ function StarRating({ value }) {
         />
       ))}
     </div>
-  )
+  );
 }
 
 const emptyForm = {
@@ -212,19 +284,31 @@ const emptyForm = {
   experience: "",
   status: "in_review",
   declineNotes: "",
-}
+};
 
 export default function TherapistDetailPage() {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const therapist = getTherapistById(id)
-  const [activeDoc, setActiveDoc] = useState(null)
-  const [activeHistory, setActiveHistory] = useState(null)
-  const [editOpen, setEditOpen] = useState(false)
-  const [form, setForm] = useState(emptyForm)
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { therapist, setTherapist, isLoading, error } =
+    useGetTherapistDetail(id);
+  const {
+    updateStatus,
+    isSubmitting,
+    error: updateError,
+    clearError,
+  } = useUpdateTherapistStatus();
+  const [activeDoc, setActiveDoc] = useState(null);
+  const [activeHistory, setActiveHistory] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [form, setForm] = useState(emptyForm);
 
   function openEdit() {
-    if (!therapist) return
+    if (!therapist) return;
+    clearError();
+    const status =
+      therapist.status === "active" || therapist.status === "rejected"
+        ? therapist.status
+        : "";
     setForm({
       name: therapist.name,
       email: therapist.email,
@@ -232,30 +316,37 @@ export default function TherapistDetailPage() {
       location: therapist.location,
       specialty: therapist.specialty,
       experience: therapist.experience,
-      status: therapist.status,
-      declineNotes: therapist.declineNotes || "",
-    })
-    setEditOpen(true)
+      status,
+      declineNotes: status === "rejected" ? therapist.declineNotes || "" : "",
+    });
+    setEditOpen(true);
   }
 
   function updateField(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }))
+    setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleSave() {
-    therapist.name = form.name
-    therapist.email = form.email
-    therapist.phone = form.phone
-    therapist.location = form.location
-    therapist.specialty = form.specialty
-    therapist.experience = form.experience
-    therapist.status = form.status
-    therapist.declineNotes = form.status === "rejected" ? form.declineNotes.trim() : ""
-    setEditOpen(false)
+  async function handleSave() {
+    const reason = form.status === "rejected" ? form.declineNotes.trim() : "";
+
+    try {
+      await updateStatus(therapist.code || id, {
+        status: form.status,
+        reason,
+      });
+      setTherapist((current) => ({
+        ...current,
+        status: form.status,
+        declineNotes: reason,
+      }));
+      setEditOpen(false);
+    } catch {
+      // The hook stores the message shown in the sheet.
+    }
   }
 
   function handleDownloadPdf(item) {
-    if (!item) return
+    if (!item) return;
     const rows = [
       ["Subjective", item.subjective],
       ["Objective", item.objective],
@@ -268,9 +359,9 @@ export default function TherapistDetailPage() {
     ]
       .map(
         ([label, value]) =>
-          `<div class="section"><h3>${label}</h3><p>${value || "-"}</p></div>`
+          `<div class="section"><h3>${label}</h3><p>${value || "-"}</p></div>`,
       )
-      .join("")
+      .join("");
 
     const html = `<!DOCTYPE html>
 <html lang="id">
@@ -305,44 +396,58 @@ export default function TherapistDetailPage() {
   <p class="muted">Dokumen dibuat otomatis oleh Fisiobook Admin pada ${new Date().toLocaleString("id-ID")}</p>
   <script>window.onload = function () { window.print(); }</script>
 </body>
-</html>`
+</html>`;
 
-    const printWindow = window.open("", "_blank")
-    if (!printWindow) return
-    printWindow.document.open()
-    printWindow.document.write(html)
-    printWindow.document.close()
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
   }
 
-  const declineNotesRequired = form.status === "rejected"
+  const declineNotesRequired = form.status === "rejected";
   const canSave =
-    form.name.trim() &&
-    form.email.trim() &&
-    (!declineNotesRequired || form.declineNotes.trim())
+    (form.status === "active" || form.status === "rejected") &&
+    (!declineNotesRequired || form.declineNotes.trim()) &&
+    !isSubmitting;
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   if (!therapist) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <p className="text-lg font-semibold">Therapist tidak ditemukan</p>
         <p className="text-sm text-muted-foreground">
-          Data therapist yang Anda cari tidak tersedia.
+          {error || "Data therapist yang Anda cari tidak tersedia."}
         </p>
         <Button variant="outline" onClick={() => navigate("/users/therapists")}>
           <ArrowLeft className="h-4 w-4" />
           Kembali ke daftar
         </Button>
       </div>
-    )
+    );
   }
 
-  const scheduleWeeks = buildScheduleWeeks(therapist.schedule)
+  const scheduleWeeks = therapist.schedule?.length
+    ? buildScheduleWeeks(therapist.schedule)
+    : [];
 
   const summary = [
-    { label: "Total Sesi", value: therapist.completedSessions.toLocaleString(), icon: ClipboardList },
-    { label: "Total Pasien", value: therapist.totalPatients.toLocaleString(), icon: Users },
+    {
+      label: "Total Sesi",
+      value: therapist.completedSessions,
+      icon: ClipboardList,
+    },
+    { label: "Total Pasien", value: therapist.totalPatients, icon: Users },
     { label: "Rating", value: therapist.rating, icon: Star },
     { label: "Pengalaman", value: therapist.experience, icon: Briefcase },
-  ]
+  ].filter((item) => item.value != null && item.value !== "");
 
   return (
     <div className="flex flex-col gap-6">
@@ -357,7 +462,7 @@ export default function TherapistDetailPage() {
         </Button>
         <Button variant="outline" className="gap-2" onClick={openEdit}>
           <Pencil className="h-4 w-4" />
-          Edit Therapist
+          Edit Therapist Status
         </Button>
       </div>
 
@@ -368,28 +473,36 @@ export default function TherapistDetailPage() {
               <AvatarImage src={therapist.photo} alt={therapist.name} />
             ) : null}
             <AvatarFallback className="bg-primary/10 text-xl font-semibold text-primary">
-              {initials(therapist.name)}
+              {initials(therapist.name, therapist.email)}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{therapist.name}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                {therapist.name || "-"}
+              </h1>
               <StatusBadge status={therapist.status} />
             </div>
-            <p className="text-sm text-muted-foreground">{therapist.specialty}</p>
+            {therapist.specialty || therapist.code ? (
+              <p className="text-sm text-muted-foreground">
+                {therapist.specialty || therapist.code}
+              </p>
+            ) : null}
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <Mail className="h-4 w-4" />
-                {therapist.email}
+                {therapist.email || "-"}
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Phone className="h-4 w-4" />
-                {therapist.phone}
+                {therapist.phone || "-"}
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-4 w-4" />
-                {therapist.location}
-              </span>
+              {therapist.location ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPin className="h-4 w-4" />
+                  {therapist.location}
+                </span>
+              ) : null}
             </div>
           </div>
         </CardContent>
@@ -399,27 +512,35 @@ export default function TherapistDetailPage() {
         <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <div>
-            <p className="text-sm font-medium text-destructive">Alasan Ditolak</p>
-            <p className="text-sm text-muted-foreground">{therapist.declineNotes}</p>
+            <p className="text-sm font-medium text-destructive">
+              Alasan Ditolak
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {therapist.declineNotes}
+            </p>
           </div>
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summary.map((item) => (
-          <Card key={item.label} className="shadow-none">
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                <item.icon className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <p className="text-lg font-bold tracking-tight">{item.value}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {summary.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {summary.map((item) => (
+            <Card key={item.label} className="shadow-none">
+              <CardContent className="flex items-center gap-3 p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <item.icon className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">{item.label}</p>
+                  <p className="text-lg font-bold tracking-tight">
+                    {item.value}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : null}
 
       <Tabs defaultValue="information">
         <TabsList className="max-w-2xl">
@@ -437,16 +558,75 @@ export default function TherapistDetailPage() {
                 <CardTitle className="text-base">Tentang</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <p className="text-sm leading-relaxed text-muted-foreground">
-                  {therapist.bio}
-                </p>
+                {therapist.bio ? (
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {therapist.bio}
+                  </p>
+                ) : null}
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <InfoRow icon={User} label="Jenis Kelamin" value={therapist.gender} />
-                  <InfoRow icon={CalendarDays} label="Bergabung Sejak" value={therapist.joinedAt} />
-                  <InfoRow icon={Award} label="Nomor Lisensi" value={therapist.licenseNumber} />
-                  <InfoRow icon={Briefcase} label="Spesialisasi" value={therapist.specialty} />
-                  <InfoRow icon={GraduationCap} label="Pendidikan" value={therapist.education} />
-                  <InfoRow icon={Languages} label="Bahasa" value={therapist.languages.join(", ")} />
+                  {displayValue(therapist.code) ? (
+                    <InfoRow
+                      icon={User}
+                      label="Kode Terapis"
+                      value={therapist.code}
+                    />
+                  ) : null}
+                  {displayValue(therapist.onboardingCode) ? (
+                    <InfoRow
+                      icon={FileText}
+                      label="Kode Onboarding"
+                      value={therapist.onboardingCode}
+                    />
+                  ) : null}
+                  {displayValue(therapist.gender) ? (
+                    <InfoRow
+                      icon={User}
+                      label="Jenis Kelamin"
+                      value={therapist.gender}
+                    />
+                  ) : null}
+                  {displayValue(therapist.joinedAt) ? (
+                    <InfoRow
+                      icon={CalendarDays}
+                      label="Bergabung Sejak"
+                      value={therapist.joinedAt}
+                    />
+                  ) : null}
+                  {displayValue(therapist.licenseNumber) ? (
+                    <InfoRow
+                      icon={Award}
+                      label="Nomor Lisensi"
+                      value={therapist.licenseNumber}
+                    />
+                  ) : null}
+                  {displayValue(therapist.specialty) ? (
+                    <InfoRow
+                      icon={Briefcase}
+                      label="Spesialisasi"
+                      value={therapist.specialty}
+                    />
+                  ) : null}
+                  {displayValue(therapist.education) ? (
+                    <InfoRow
+                      icon={GraduationCap}
+                      label="Pendidikan"
+                      value={therapist.education}
+                    />
+                  ) : null}
+                  {therapist.languages?.length ? (
+                    <InfoRow
+                      icon={Languages}
+                      label="Bahasa"
+                      value={therapist.languages.join(", ")}
+                    />
+                  ) : null}
+                  {displayValue(therapist.approvalByName) ? (
+                    <InfoRow
+                      icon={User}
+                      label="Disetujui Oleh"
+                      value={therapist.approvalByName}
+                    />
+                  ) : null}
                 </div>
               </CardContent>
             </Card>
@@ -456,9 +636,21 @@ export default function TherapistDetailPage() {
                 <CardTitle className="text-base">Kontak & Alamat</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <InfoRow icon={Mail} label="Email" value={therapist.email} />
-                <InfoRow icon={Phone} label="Telepon" value={therapist.phone} />
-                <InfoRow icon={MapPin} label="Lokasi" value={therapist.location} />
+                <InfoRow
+                  icon={Mail}
+                  label="Email"
+                  value={therapist.email || "-"}
+                />
+                <InfoRow
+                  icon={Phone}
+                  label="Telepon"
+                  value={therapist.phone || "-"}
+                />
+                <InfoRow
+                  icon={MapPin}
+                  label="Lokasi"
+                  value={therapist.location || "-"}
+                />
                 <InfoRow
                   icon={Building2}
                   label="Alamat"
@@ -481,73 +673,81 @@ export default function TherapistDetailPage() {
                 <CardTitle className="text-base">Dokumen & Legalitas</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <DocumentRow
-                  icon={IdCard}
-                  label="KTP — Nomor Identitas"
-                  value={therapist.ktp}
-                  onView={() =>
-                    setActiveDoc({
-                      title: "KTP — Nomor Identitas",
-                      value: therapist.ktp,
-                      image: therapist.ktpImage,
-                    })
-                  }
+                {therapist.ktpImage ? (
+                  <DocumentRow
+                    icon={IdCard}
+                    label="KTP — Nomor Identitas"
+                    value={therapist.ktp}
+                    onView={() =>
+                      setActiveDoc({
+                        title: "KTP — Nomor Identitas",
+                        value: therapist.ktp,
+                        image: therapist.ktpImage,
+                      })
+                    }
+                  />
+                ) : null}
+                {therapist.strImage ? (
+                  <DocumentRow
+                    icon={FileBadge}
+                    label="STR — Surat Tanda Registrasi"
+                    value={therapist.str}
+                    onView={() =>
+                      setActiveDoc({
+                        title: "STR — Surat Tanda Registrasi",
+                        value: therapist.str,
+                        image: therapist.strImage,
+                      })
+                    }
+                  />
+                ) : null}
+                {therapist.sipImage ? (
+                  <DocumentRow
+                    icon={FileText}
+                    label="SIP — Surat Izin Praktik"
+                    value={therapist.sip}
+                    onView={() =>
+                      setActiveDoc({
+                        title: "SIP — Surat Izin Praktik",
+                        value: therapist.sip,
+                        image: therapist.sipImage,
+                      })
+                    }
+                  />
+                ) : null}
+                {therapist.ijazahImage ? (
+                  <DocumentRow
+                    icon={GraduationCap}
+                    label="Ijazah — Nomor Ijazah"
+                    value={therapist.ijazah}
+                    onView={() =>
+                      setActiveDoc({
+                        title: "Ijazah — Nomor Ijazah",
+                        value: therapist.ijazah,
+                        image: therapist.ijazahImage,
+                      })
+                    }
+                  />
+                ) : null}
+                {therapist.ukomCertificate ? (
+                  <DocumentRow
+                    icon={Award}
+                    label="Sertifikat UKOM"
+                    value={`${therapist.ukomCertificate.number} · ${therapist.ukomCertificate.issuedAt}`}
+                    onView={() =>
+                      setActiveDoc({
+                        title: "Sertifikat UKOM",
+                        value: `${therapist.ukomCertificate.number} · Diterbitkan ${therapist.ukomCertificate.issuedAt}`,
+                        image: therapist.ukomCertificate.image,
+                      })
+                    }
+                  />
+                ) : null}
+                <InfoRow
+                  icon={Landmark}
+                  label="No. Rekening"
+                  value={therapist.bankAccount || "-"}
                 />
-                <DocumentRow
-                  icon={FileBadge}
-                  label="STR — Surat Tanda Registrasi"
-                  value={therapist.str}
-                  onView={() =>
-                    setActiveDoc({
-                      title: "STR — Surat Tanda Registrasi",
-                      value: therapist.str,
-                      image: therapist.strImage,
-                    })
-                  }
-                />
-                <DocumentRow
-                  icon={FileText}
-                  label="SIP — Surat Izin Praktik"
-                  value={therapist.sip}
-                  onView={() =>
-                    setActiveDoc({
-                      title: "SIP — Surat Izin Praktik",
-                      value: therapist.sip,
-                      image: therapist.sipImage,
-                    })
-                  }
-                />
-                <DocumentRow
-                  icon={GraduationCap}
-                  label="Ijazah — Nomor Ijazah"
-                  value={therapist.ijazah}
-                  onView={() =>
-                    setActiveDoc({
-                      title: "Ijazah — Nomor Ijazah",
-                      value: therapist.ijazah,
-                      image: therapist.ijazahImage,
-                    })
-                  }
-                />
-                <DocumentRow
-                  icon={Award}
-                  label="Sertifikat UKOM"
-                  value={
-                    therapist.ukomCertificate
-                      ? `${therapist.ukomCertificate.number} · ${therapist.ukomCertificate.issuedAt}`
-                      : "-"
-                  }
-                  onView={() =>
-                    setActiveDoc({
-                      title: "Sertifikat UKOM",
-                      value: therapist.ukomCertificate
-                        ? `${therapist.ukomCertificate.number} · Diterbitkan ${therapist.ukomCertificate.issuedAt}`
-                        : "-",
-                      image: therapist.ukomCertificate?.image,
-                    })
-                  }
-                />
-                <InfoRow icon={Landmark} label="No. Rekening" value={therapist.bankAccount} />
               </CardContent>
             </Card>
 
@@ -565,6 +765,7 @@ export default function TherapistDetailPage() {
                   primaryKey="position"
                   secondaryKey="company"
                   metaKey="period"
+                  noteKey="description"
                 />
               </CardContent>
             </Card>
@@ -583,6 +784,13 @@ export default function TherapistDetailPage() {
                   primaryKey="degree"
                   secondaryKey="institution"
                   metaKey="period"
+                  onView={(item) =>
+                    setActiveDoc({
+                      title: "Ijazah",
+                      value: `${item.degree} · ${item.institution}`,
+                      image: item.fileUrl,
+                    })
+                  }
                 />
               </CardContent>
             </Card>
@@ -601,6 +809,13 @@ export default function TherapistDetailPage() {
                   primaryKey="name"
                   secondaryKey="organizer"
                   metaKey="year"
+                  onView={(item) =>
+                    setActiveDoc({
+                      title: item.name,
+                      value: `${item.organizer} · ${item.year}`,
+                      image: item.fileUrl,
+                    })
+                  }
                 />
               </CardContent>
             </Card>
@@ -620,16 +835,29 @@ export default function TherapistDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {therapist.services.map((service) => (
-                    <TableRow key={service.id}>
-                      <TableCell className="font-medium">{service.name}</TableCell>
-                      <TableCell>{service.duration}</TableCell>
-                      <TableCell>{service.price}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={service.status} />
+                  {therapist.services?.length ? (
+                    therapist.services.map((service) => (
+                      <TableRow key={service.id}>
+                        <TableCell className="font-medium">
+                          {service.name}
+                        </TableCell>
+                        <TableCell>{service.duration}</TableCell>
+                        <TableCell>{service.price}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={service.status} />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Belum ada layanan.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -652,38 +880,53 @@ export default function TherapistDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {therapist.history.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className="cursor-pointer"
-                      onClick={() => setActiveHistory(item)}
-                    >
-                      <TableCell>{item.date}</TableCell>
-                      <TableCell className="font-mono text-sm">
-                        {item.medicalRecordNumber || "-"}
-                      </TableCell>
-                      <TableCell className="font-medium">{item.patient}</TableCell>
-                      <TableCell>{item.service}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={item.status} />
-                      </TableCell>
-                      <TableCell className="text-right">{item.amount}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setActiveHistory(item)
-                          }}
-                        >
-                          <Eye className="h-4 w-4" />
-                          Lihat
-                        </Button>
+                  {therapist.history?.length ? (
+                    therapist.history.map((item) => (
+                      <TableRow
+                        key={item.id}
+                        className="cursor-pointer"
+                        onClick={() => setActiveHistory(item)}
+                      >
+                        <TableCell>{item.date}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {item.medicalRecordNumber || "-"}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {item.patient}
+                        </TableCell>
+                        <TableCell>{item.service}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={item.status} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.amount}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveHistory(item);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                            Lihat
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Belum ada riwayat treatment.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -692,27 +935,41 @@ export default function TherapistDetailPage() {
 
         <TabsContent value="reviews">
           <div className="grid gap-4">
-            {therapist.reviews.map((review) => (
-              <Card key={review.id} className="shadow-none">
-                <CardContent className="space-y-2 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-muted text-xs">
-                          {review.patient.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="text-sm font-medium">{review.patient}</p>
-                        <p className="text-xs text-muted-foreground">{review.date}</p>
+            {therapist.reviews?.length ? (
+              therapist.reviews.map((review) => (
+                <Card key={review.id} className="shadow-none">
+                  <CardContent className="space-y-2 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="bg-muted text-xs">
+                            {review.patient.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {review.patient}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {review.date}
+                          </p>
+                        </div>
                       </div>
+                      <StarRating value={review.rating} />
                     </div>
-                    <StarRating value={review.rating} />
-                  </div>
-                  <p className="text-sm text-muted-foreground">{review.comment}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {review.comment}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card className="shadow-none">
+                <CardContent className="p-6 text-sm text-muted-foreground">
+                  Belum ada ulasan.
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
         </TabsContent>
 
@@ -741,55 +998,77 @@ export default function TherapistDetailPage() {
               </CardContent>
             </Card>
 
-            {scheduleWeeks.map((week) => (
-              <Card key={week.label} className="shadow-none">
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                      {week.label}
-                    </CardTitle>
-                    <span className="text-sm text-muted-foreground">{week.range}</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="grid gap-3 sm:grid-cols-2">
-                  {week.days.map((day) => (
-                    <div
-                      key={day.dayName}
-                      className={cn(
-                        "flex items-center justify-between rounded-lg border px-4 py-3",
-                        day.isToday && "border-primary bg-primary/5"
-                      )}
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">
-                          {day.dayName}
-                          {day.isToday ? (
-                            <span className="ml-2 text-xs font-normal text-primary">
-                              Hari ini
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {day.dateLabel}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">{day.hours}</span>
-                        <Badge variant={day.available ? "success" : "secondary"}>
-                          {day.available ? "Tersedia" : "Libur"}
-                        </Badge>
-                      </div>
+            {scheduleWeeks.length ? (
+              scheduleWeeks.map((week) => (
+                <Card key={week.key} className="shadow-none">
+                  <CardHeader>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                        {week.label}
+                      </CardTitle>
+                      <span className="text-sm text-muted-foreground">
+                        {week.range}
+                      </span>
                     </div>
-                  ))}
+                  </CardHeader>
+                  <CardContent className="grid gap-3 sm:grid-cols-2">
+                    {week.days.map((day) => (
+                      <div
+                        key={day.dayName}
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border px-4 py-3",
+                          day.isToday && "border-primary bg-primary/5",
+                        )}
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">
+                            {day.dayName}
+                            {day.isToday ? (
+                              <span className="ml-2 text-xs font-normal text-primary">
+                                Hari ini
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {day.dateLabel}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {day.scheduled ? (
+                            <StatusBadge status={therapist.status} />
+                          ) : (
+                            <Badge variant="secondary">Libur</Badge>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card className="shadow-none">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    Jadwal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    Jadwal belum tersedia.
+                  </p>
                 </CardContent>
               </Card>
-            ))}
+            )}
           </div>
         </TabsContent>
       </Tabs>
 
-      <Dialog open={!!activeDoc} onOpenChange={(open) => !open && setActiveDoc(null)}>
+      <Dialog
+        open={!!activeDoc}
+        onOpenChange={(open) => !open && setActiveDoc(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{activeDoc?.title}</DialogTitle>
@@ -811,7 +1090,10 @@ export default function TherapistDetailPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!activeHistory} onOpenChange={(open) => !open && setActiveHistory(null)}>
+      <Dialog
+        open={!!activeHistory}
+        onOpenChange={(open) => !open && setActiveHistory(null)}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Detail Treatment</DialogTitle>
@@ -831,9 +1113,15 @@ export default function TherapistDetailPage() {
                 </p>
               </div>
 
-              <SoapSection label="Subjective" value={activeHistory.subjective} />
+              <SoapSection
+                label="Subjective"
+                value={activeHistory.subjective}
+              />
               <SoapSection label="Objective" value={activeHistory.objective} />
-              <SoapSection label="Assessment" value={activeHistory.assessment} />
+              <SoapSection
+                label="Assessment"
+                value={activeHistory.assessment}
+              />
               <SoapSection label="Plan" value={activeHistory.plan} />
               <SoapSection
                 label="Pemeriksaan Penunjang"
@@ -859,7 +1147,9 @@ export default function TherapistDetailPage() {
                     {activeHistory.informConsent.name}
                   </a>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Tidak ada dokumen</p>
+                  <p className="text-sm text-muted-foreground">
+                    Tidak ada dokumen
+                  </p>
                 )}
               </div>
 
@@ -870,14 +1160,18 @@ export default function TherapistDetailPage() {
                     <p className="text-xs text-muted-foreground">
                       Jadwal Kunjungan Berikutnya
                     </p>
-                    <p className="text-sm font-medium">{activeHistory.nextVisit || "-"}</p>
+                    <p className="text-sm font-medium">
+                      {activeHistory.nextVisit || "-"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 rounded-lg border p-3">
                   <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Catatan</p>
-                    <p className="text-sm font-medium">{activeHistory.notes || "-"}</p>
+                    <p className="text-sm font-medium">
+                      {activeHistory.notes || "-"}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -885,13 +1179,13 @@ export default function TherapistDetailPage() {
           ) : null}
 
           <DialogFooter className="border-t pt-4">
-            <Button
-              variant="outline"
-              onClick={() => setActiveHistory(null)}
-            >
+            <Button variant="outline" onClick={() => setActiveHistory(null)}>
               Tutup
             </Button>
-            <Button className="gap-2" onClick={() => handleDownloadPdf(activeHistory)}>
+            <Button
+              className="gap-2"
+              onClick={() => handleDownloadPdf(activeHistory)}
+            >
               <Download className="h-4 w-4" />
               Download PDF
             </Button>
@@ -902,73 +1196,19 @@ export default function TherapistDetailPage() {
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
         <SheetContent side="right" className="sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Edit Therapist</SheetTitle>
+            <SheetTitle>Edit Therapist Status</SheetTitle>
             <SheetDescription>
-              Perbarui informasi dan status therapist.
+              Active menyimpan status VERIFIED. Rejected menyimpan status
+              REJECTED dan wajib menyertakan alasan.
             </SheetDescription>
           </SheetHeader>
 
           <SheetBody className="space-y-5 py-4">
             <div className="space-y-2">
-              <Label htmlFor="edit-name">Nama</Label>
-              <Input
-                id="edit-name"
-                value={form.name}
-                onChange={(e) => updateField("name", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={form.email}
-                onChange={(e) => updateField("email", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-phone">Telepon</Label>
-              <Input
-                id="edit-phone"
-                value={form.phone}
-                onChange={(e) => updateField("phone", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-location">Lokasi</Label>
-              <Input
-                id="edit-location"
-                value={form.location}
-                onChange={(e) => updateField("location", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-specialty">Spesialisasi</Label>
-              <Input
-                id="edit-specialty"
-                value={form.specialty}
-                onChange={(e) => updateField("specialty", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-experience">Pengalaman</Label>
-              <Input
-                id="edit-experience"
-                value={form.experience}
-                onChange={(e) => updateField("experience", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
               <Label>Status</Label>
               <div className="grid grid-cols-2 gap-2">
                 {STATUS_OPTIONS.map((option) => {
-                  const selected = form.status === option.value
+                  const selected = form.status === option.value;
                   return (
                     <button
                       key={option.value}
@@ -978,13 +1218,15 @@ export default function TherapistDetailPage() {
                         "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
                         selected
                           ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
-                          : "border-input text-muted-foreground hover:bg-muted/50"
+                          : "border-input text-muted-foreground hover:bg-muted/50",
                       )}
                     >
-                      <span className={cn("h-2 w-2 rounded-full", option.dot)} />
+                      <span
+                        className={cn("h-2 w-2 rounded-full", option.dot)}
+                      />
                       {option.label}
                     </button>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -1007,6 +1249,12 @@ export default function TherapistDetailPage() {
                 ) : null}
               </div>
             ) : null}
+
+            {updateError ? (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                {updateError}
+              </div>
+            ) : null}
           </SheetBody>
 
           <SheetFooter>
@@ -1014,11 +1262,18 @@ export default function TherapistDetailPage() {
               Batal
             </Button>
             <Button onClick={handleSave} disabled={!canSave}>
-              Simpan Perubahan
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                "Simpan Perubahan"
+              )}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
     </div>
-  )
+  );
 }
