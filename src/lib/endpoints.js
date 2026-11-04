@@ -6,4 +6,5 @@ export const ENDPOINTS = {
   USER_GET_DETAIL_THERAPIST: `${API_BASE_URL}/employee/therapist/:code`,
   UPDATE_THERAPIST_STATUS: `${API_BASE_URL}/employee/onboarding/approval/:therapistCode`,
   GET_BOOKING_LIST: `${API_BASE_URL}/booking-management`,
+  GET_BOOKING_DETAIL: `${API_BASE_URL}/booking-management/:code`,
 };

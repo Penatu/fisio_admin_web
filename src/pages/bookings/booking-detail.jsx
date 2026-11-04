@@ -22,14 +22,8 @@ import {
   User,
   X,
 } from "lucide-react"
-import {
-  getBookingById,
-  ORDER_STATUS,
-  ORDER_STATUS_FLOW,
-  ORDER_STATUS_OPTIONS,
-  updateBookingStatus,
-} from "@/lib/bookings-data"
-import { getPaymentByBookingId } from "@/lib/payments-data"
+import { ORDER_STATUS, ORDER_STATUS_FLOW, ORDER_STATUS_OPTIONS } from "@/lib/bookings-data"
+import { useGetBookingDetail } from "@/pages/bookings/hooks/useGetBookingDetail"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -55,6 +49,23 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { StatusBadge } from "@/components/shared/status-badge"
+
+const DISPLAY_STATUS = {
+  ...ORDER_STATUS,
+  new: {
+    label: "New",
+    description: "Request masuk",
+    badge: "info",
+    dot: "bg-blue-500",
+  },
+  cancelled: ORDER_STATUS.canceled,
+}
+
+function stepperStatus(status) {
+  if (status === "new") return "received_request"
+  if (status === "cancelled") return "canceled"
+  return status
+}
 
 function InfoRow({ icon: Icon, label, value }) {
   return (
@@ -140,11 +151,10 @@ function StatusStepper({ current }) {
 export default function BookingDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const booking = getBookingById(id)
-  const payment = booking ? getPaymentByBookingId(booking.id) : null
+  const { booking, setBooking, isLoading, error } = useGetBookingDetail(id)
+  const payment = booking?.paymentDetail || null
   const [editOpen, setEditOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
-  const [, forceUpdate] = useState(0)
 
   const [statusValue, setStatusValue] = useState("")
   const [note, setNote] = useState("")
@@ -157,12 +167,20 @@ export default function BookingDetailPage() {
   const [supportingExamination, setSupportingExamination] = useState("")
   const [evidenceBasedPractice, setEvidenceBasedPractice] = useState("")
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
   if (!booking) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <p className="text-lg font-semibold">Booking tidak ditemukan</p>
         <p className="text-sm text-muted-foreground">
-          Data booking yang Anda cari tidak tersedia.
+          {error || "Data booking yang Anda cari tidak tersedia."}
         </p>
         <Button variant="outline" onClick={() => navigate("/bookings")}>
           <ArrowLeft className="h-4 w-4" />
@@ -194,10 +212,11 @@ export default function BookingDetailPage() {
   }
 
   function handleSave() {
-    updateBookingStatus(id, {
+    const trimmedNote = note.trim()
+    setBooking((current) => ({
+      ...current,
       orderStatus: statusValue,
-      note: note.trim(),
-      informedConsent: statusValue === "report" ? consent : undefined,
+      informedConsent: statusValue === "report" ? consent : current.informedConsent,
       treatmentReport:
         statusValue === "report" || statusValue === "done"
           ? {
@@ -209,9 +228,24 @@ export default function BookingDetailPage() {
               supportingExamination: supportingExamination.trim(),
               evidenceBasedPractice: evidenceBasedPractice.trim(),
             }
-          : undefined,
-    })
-    forceUpdate((n) => n + 1)
+          : current.treatmentReport,
+      notes: trimmedNote || current.notes,
+      statusHistory: [
+        ...(current.statusHistory || []),
+        {
+          status: statusValue,
+          note: trimmedNote || ORDER_STATUS[statusValue]?.description || "",
+          time: new Date().toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
+        },
+      ],
+    }))
     setEditOpen(false)
   }
 
@@ -252,8 +286,8 @@ export default function BookingDetailPage() {
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-mono text-xl font-bold tracking-tight">{booking.code}</h1>
-              <Badge variant={ORDER_STATUS[booking.orderStatus]?.badge || "secondary"}>
-                {ORDER_STATUS[booking.orderStatus]?.label}
+              <Badge variant={DISPLAY_STATUS[booking.orderStatus]?.badge || "secondary"}>
+                {DISPLAY_STATUS[booking.orderStatus]?.label || booking.orderStatus || "-"}
               </Badge>
               <StatusBadge status={booking.payment} />
             </div>
@@ -269,7 +303,7 @@ export default function BookingDetailPage() {
           <CardTitle className="text-base">Order Status</CardTitle>
         </CardHeader>
         <CardContent>
-          <StatusStepper current={booking.orderStatus} />
+          <StatusStepper current={stepperStatus(booking.orderStatus)} />
         </CardContent>
       </Card>
 
@@ -277,12 +311,12 @@ export default function BookingDetailPage() {
         <Card className="shadow-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Pasien</CardTitle>
-            {booking.patientId ? (
+            {booking.patientCode ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                onClick={() => navigate(`/users/patients/${booking.patientId}`)}
+                onClick={() => navigate(`/users/patients/${booking.patientCode}`)}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 Detail Pasien
@@ -299,12 +333,12 @@ export default function BookingDetailPage() {
         <Card className="shadow-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Terapis</CardTitle>
-            {booking.therapistId ? (
+            {booking.therapistCode ? (
               <Button
                 variant="outline"
                 size="sm"
                 className="gap-1.5"
-                onClick={() => navigate(`/users/therapists/${booking.therapistId}`)}
+                onClick={() => navigate(`/users/therapists/${booking.therapistCode}`)}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 Detail Terapis
@@ -396,11 +430,11 @@ export default function BookingDetailPage() {
                 <span
                   className={cn(
                     "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
-                    ORDER_STATUS[item.status]?.dot || "bg-muted-foreground"
+                    DISPLAY_STATUS[item.status]?.dot || "bg-muted-foreground"
                   )}
                 />
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{ORDER_STATUS[item.status]?.label || item.status}</p>
+                  <p className="text-sm font-medium">{DISPLAY_STATUS[item.status]?.label || item.status}</p>
                   {item.note ? (
                     <p className="text-xs text-muted-foreground">{item.note}</p>
                   ) : null}
@@ -449,9 +483,19 @@ export default function BookingDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                {booking.notes || "Tidak ada catatan."}
-              </p>
+              {booking.notes?.trim() || booking.complaint?.trim() ? (
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  {booking.notes?.trim() ? <p>{booking.notes}</p> : null}
+                  {booking.complaint?.trim() ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide">Keluhan</p>
+                      <p className="mt-1">{booking.complaint}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Tidak ada catatan.</p>
+              )}
             </CardContent>
           </Card>
         </div>
