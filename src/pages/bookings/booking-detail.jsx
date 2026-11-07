@@ -18,12 +18,12 @@ import {
   Receipt,
   Stethoscope,
   StickyNote,
-  Upload,
   User,
   X,
 } from "lucide-react"
-import { ORDER_STATUS, ORDER_STATUS_FLOW, ORDER_STATUS_OPTIONS } from "@/lib/bookings-data"
+import { ORDER_STATUS } from "@/lib/bookings-data"
 import { useGetBookingDetail } from "@/pages/bookings/hooks/useGetBookingDetail"
+import { useGetTherapist } from "@/pages/users/hooks/useGetTherapist"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -50,19 +50,56 @@ import {
 } from "@/components/ui/sheet"
 import { StatusBadge } from "@/components/shared/status-badge"
 
-const DISPLAY_STATUS = {
-  ...ORDER_STATUS,
-  new: {
+const EDIT_STATUS_OPTIONS = [
+  {
+    value: "new",
     label: "New",
-    description: "Request masuk",
+    description: "Request booking baru masuk.",
     badge: "info",
     dot: "bg-blue-500",
   },
-  cancelled: ORDER_STATUS.canceled,
+  {
+    value: "confirmed",
+    label: "Confirmed",
+    description: "Booking dikonfirmasi. Terapis perlu di-assign.",
+    badge: "info",
+    dot: "bg-sky-500",
+  },
+  {
+    value: "visit",
+    label: "Visit",
+    description: "Terapis melakukan kunjungan.",
+    badge: "warning",
+    dot: "bg-amber-500",
+  },
+  {
+    value: "finished",
+    label: "Finished",
+    description: "Kunjungan selesai.",
+    badge: "success",
+    dot: "bg-emerald-500",
+  },
+  {
+    value: "canceled",
+    label: "Canceled",
+    description: "Booking dibatalkan.",
+    badge: "destructive",
+    dot: "bg-red-500",
+  },
+]
+
+const STATUS_FLOW = ["new", "confirmed", "visit", "finished"]
+
+const DISPLAY_STATUS = {
+  ...ORDER_STATUS,
+  ...Object.fromEntries(EDIT_STATUS_OPTIONS.map((option) => [option.value, option])),
+  cancelled: EDIT_STATUS_OPTIONS.find((option) => option.value === "canceled"),
 }
 
 function stepperStatus(status) {
-  if (status === "new") return "received_request"
+  if (status === "received_request") return "new"
+  if (status === "ongoing") return "visit"
+  if (status === "done" || status === "report") return "finished"
   if (status === "cancelled") return "canceled"
   return status
 }
@@ -101,20 +138,20 @@ function StatusStepper({ current }) {
         </div>
         <div>
           <p className="text-sm font-semibold text-destructive">Canceled</p>
-          <p className="text-xs text-muted-foreground">{ORDER_STATUS.canceled.description}</p>
+          <p className="text-xs text-muted-foreground">{DISPLAY_STATUS.canceled.description}</p>
         </div>
       </div>
     )
   }
 
-  const currentIndex = ORDER_STATUS_FLOW.indexOf(current)
+  const currentIndex = STATUS_FLOW.indexOf(current)
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-      {ORDER_STATUS_FLOW.map((status, index) => {
+      {STATUS_FLOW.map((status, index) => {
         const done = index < currentIndex
         const active = index === currentIndex
-        const cfg = ORDER_STATUS[status]
+        const cfg = DISPLAY_STATUS[status]
         return (
           <div key={status} className="flex flex-1 items-start gap-3 sm:flex-col sm:items-center sm:text-center">
             <div className="flex items-center gap-3 sm:w-full sm:flex-col">
@@ -128,7 +165,7 @@ function StatusStepper({ current }) {
               >
                 {done ? <Check className="h-4 w-4" /> : index + 1}
               </div>
-              {index < ORDER_STATUS_FLOW.length - 1 ? (
+              {index < STATUS_FLOW.length - 1 ? (
                 <div
                   className={cn(
                     "hidden h-0.5 w-full flex-1 sm:block",
@@ -152,20 +189,20 @@ export default function BookingDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { booking, setBooking, isLoading, error } = useGetBookingDetail(id)
+  const {
+    therapists,
+    isLoading: isTherapistsLoading,
+    error: therapistsError,
+    search: therapistSearch,
+    setSearch: setTherapistSearch,
+    setPerPage: setTherapistPerPage,
+  } = useGetTherapist()
   const payment = booking?.paymentDetail || null
   const [editOpen, setEditOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
-
   const [statusValue, setStatusValue] = useState("")
   const [note, setNote] = useState("")
-  const [consent, setConsent] = useState(null)
-  const [medicalRecordNumber, setMedicalRecordNumber] = useState("")
-  const [subjective, setSubjective] = useState("")
-  const [objective, setObjective] = useState("")
-  const [assessment, setAssessment] = useState("")
-  const [plan, setPlan] = useState("")
-  const [supportingExamination, setSupportingExamination] = useState("")
-  const [evidenceBasedPractice, setEvidenceBasedPractice] = useState("")
+  const [selectedTherapistCode, setSelectedTherapistCode] = useState("")
 
   if (isLoading) {
     return (
@@ -193,48 +230,38 @@ export default function BookingDetailPage() {
   function openEdit() {
     setStatusValue(booking.orderStatus)
     setNote("")
-    setConsent(booking.informedConsent)
-    setMedicalRecordNumber(booking.treatmentReport?.medicalRecordNumber || "")
-    setSubjective(booking.treatmentReport?.subjective || "")
-    setObjective(booking.treatmentReport?.objective || "")
-    setAssessment(booking.treatmentReport?.assessment || "")
-    setPlan(booking.treatmentReport?.plan || "")
-    setSupportingExamination(booking.treatmentReport?.supportingExamination || "")
-    setEvidenceBasedPractice(booking.treatmentReport?.evidenceBasedPractice || "")
+    setSelectedTherapistCode(booking.therapistCode || "")
+    setTherapistSearch("")
+    setTherapistPerPage(50)
     setEditOpen(true)
-  }
-
-  function handleConsentUpload(e) {
-    const file = e.target.files?.[0]
-    if (file) {
-      setConsent({ name: file.name, url: URL.createObjectURL(file) })
-    }
   }
 
   function handleSave() {
     const trimmedNote = note.trim()
+    const assignedTherapist =
+      statusValue === "confirmed"
+        ? therapists.find((therapist) => therapist.code === selectedTherapistCode)
+        : null
+    const assignmentNote = assignedTherapist?.name
+      ? `Terapis di-assign: ${assignedTherapist.name}.`
+      : ""
+
     setBooking((current) => ({
       ...current,
       orderStatus: statusValue,
-      informedConsent: statusValue === "report" ? consent : current.informedConsent,
-      treatmentReport:
-        statusValue === "report" || statusValue === "done"
-          ? {
-              medicalRecordNumber: medicalRecordNumber.trim(),
-              subjective: subjective.trim(),
-              objective: objective.trim(),
-              assessment: assessment.trim(),
-              plan: plan.trim(),
-              supportingExamination: supportingExamination.trim(),
-              evidenceBasedPractice: evidenceBasedPractice.trim(),
-            }
-          : current.treatmentReport,
+      ...(assignedTherapist
+        ? {
+            therapistCode: assignedTherapist.code || "",
+            therapist: assignedTherapist.name || current.therapist,
+            therapistPhone: assignedTherapist.phone || current.therapistPhone,
+          }
+        : {}),
       notes: trimmedNote || current.notes,
       statusHistory: [
         ...(current.statusHistory || []),
         {
           status: statusValue,
-          note: trimmedNote || ORDER_STATUS[statusValue]?.description || "",
+          note: trimmedNote || assignmentNote || DISPLAY_STATUS[statusValue]?.description || "",
           time: new Date().toLocaleString("en-GB", {
             day: "2-digit",
             month: "short",
@@ -249,10 +276,8 @@ export default function BookingDetailPage() {
     setEditOpen(false)
   }
 
-  const reportRequiresConsent = statusValue === "report" && !consent
-  const reportRequiresMedicalRecord =
-    (statusValue === "report" || statusValue === "done") && !medicalRecordNumber.trim()
-  const canSave = !!statusValue && !reportRequiresConsent && !reportRequiresMedicalRecord
+  const needsTherapist = statusValue === "confirmed"
+  const canSave = Boolean(statusValue) && (!needsTherapist || Boolean(selectedTherapistCode))
   const treatmentReport = booking.treatmentReport
   const hasTreatmentReport =
     treatmentReport &&
@@ -579,10 +604,14 @@ export default function BookingDetailPage() {
           </SheetHeader>
 
           <SheetBody className="space-y-5 py-4">
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-950">
+              Mengubah status booking dari Super Admin sangat tidak disarankan.
+            </div>
+
             <div className="space-y-2">
               <Label>Order Status</Label>
               <div className="grid gap-2">
-                {ORDER_STATUS_OPTIONS.map((option) => {
+                {EDIT_STATUS_OPTIONS.map((option) => {
                   const selected = statusValue === option.value
                   return (
                     <button
@@ -609,127 +638,60 @@ export default function BookingDetailPage() {
               </div>
             </div>
 
-            {statusValue === "report" ? (
+            {statusValue === "confirmed" ? (
               <div className="space-y-2">
-                <Label htmlFor="consent">
-                  Upload Informed Consent <span className="text-destructive">*</span>
+                <Label htmlFor="therapist-search">
+                  Assign Terapis <span className="text-destructive">*</span>
                 </Label>
-                {consent ? (
-                  <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                    <span className="inline-flex items-center gap-2 truncate">
-                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{consent.name}</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => setConsent(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-6 text-sm text-muted-foreground transition-colors hover:bg-muted/50">
-                    <Upload className="h-4 w-4" />
-                    Pilih file untuk diupload
-                    <input
-                      id="consent"
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={handleConsentUpload}
-                    />
-                  </label>
-                )}
-                {reportRequiresConsent ? (
+                <Input
+                  id="therapist-search"
+                  placeholder="Cari terapis..."
+                  value={therapistSearch}
+                  onChange={(event) => setTherapistSearch(event.target.value)}
+                />
+                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                  {isTherapistsLoading ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      Memuat daftar terapis...
+                    </p>
+                  ) : therapistsError ? (
+                    <p className="py-6 text-center text-sm text-destructive">{therapistsError}</p>
+                  ) : therapists.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">
+                      Tidak ada terapis.
+                    </p>
+                  ) : (
+                    therapists.map((therapist) => {
+                      const selected = selectedTherapistCode === therapist.code
+                      return (
+                        <button
+                          key={therapist.code || therapist.email}
+                          type="button"
+                          onClick={() => setSelectedTherapistCode(therapist.code)}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                            selected
+                              ? "border-primary bg-primary/5 ring-1 ring-primary"
+                              : "border-input hover:bg-muted/50"
+                          )}
+                        >
+                          <span>
+                            <span className="block text-sm font-medium">{therapist.name || "-"}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              {therapist.phone || therapist.email || "-"}
+                            </span>
+                          </span>
+                          <StatusBadge status={therapist.status} />
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+                {!selectedTherapistCode ? (
                   <p className="text-xs text-destructive">
-                    Informed consent wajib diupload untuk status Report.
+                    Pilih terapis untuk status Confirmed.
                   </p>
                 ) : null}
-              </div>
-            ) : null}
-
-            {statusValue === "report" || statusValue === "done" ? (
-              <div className="space-y-4 rounded-lg border p-3">
-                <p className="text-sm font-medium">Laporan Treatment</p>
-
-                <div className="space-y-2">
-                  <Label htmlFor="medical-record">
-                    No. Rekam Medik / History Treatment{" "}
-                    <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="medical-record"
-                    placeholder="Contoh: RM-2026-01455"
-                    value={medicalRecordNumber}
-                    onChange={(e) => setMedicalRecordNumber(e.target.value)}
-                  />
-                  {reportRequiresMedicalRecord ? (
-                    <p className="text-xs text-destructive">
-                      Nomor rekam medik wajib diisi.
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="subjective">Subjective</Label>
-                  <Textarea
-                    id="subjective"
-                    placeholder="Keluhan subjektif pasien..."
-                    value={subjective}
-                    onChange={(e) => setSubjective(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="objective">Objective</Label>
-                  <Textarea
-                    id="objective"
-                    placeholder="Temuan objektif pemeriksaan..."
-                    value={objective}
-                    onChange={(e) => setObjective(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="assessment">Assessment</Label>
-                  <Textarea
-                    id="assessment"
-                    placeholder="Assessment / diagnosis fisioterapi..."
-                    value={assessment}
-                    onChange={(e) => setAssessment(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="plan">Plan</Label>
-                  <Textarea
-                    id="plan"
-                    placeholder="Rencana terapi..."
-                    value={plan}
-                    onChange={(e) => setPlan(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="supporting-exam">Pemeriksaan Penunjang</Label>
-                  <Textarea
-                    id="supporting-exam"
-                    placeholder="Hasil pemeriksaan penunjang..."
-                    value={supportingExamination}
-                    onChange={(e) => setSupportingExamination(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="ebp">EBP — Evidence Based Practice</Label>
-                  <Textarea
-                    id="ebp"
-                    placeholder="Referensi evidence based practice..."
-                    value={evidenceBasedPractice}
-                    onChange={(e) => setEvidenceBasedPractice(e.target.value)}
-                  />
-                </div>
               </div>
             ) : null}
 

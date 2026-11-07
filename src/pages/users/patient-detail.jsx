@@ -7,24 +7,17 @@ import {
   CalendarDays,
   ClipboardList,
   Download,
-  Droplet,
   Eye,
-  FileText,
-  HeartPulse,
   Mail,
   MapPin,
   Pencil,
   Phone,
-  Ruler,
-  Shield,
   Stethoscope,
   StickyNote,
-  User,
-  Weight,
 } from "lucide-react";
-import { getPatientById } from "@/lib/patients-data";
+import { useGetPatientDetail } from "@/pages/users/hooks/useGetPatientDetail";
 import { cn } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -78,10 +71,16 @@ const emptyForm = {
 };
 
 function initials(name) {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("");
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!parts.length) return "?";
+  return parts
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 function InfoRow({ icon: Icon, label, value }) {
@@ -112,7 +111,7 @@ function SoapSection({ label, value }) {
 export default function PatientDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const patient = getPatientById(id);
+  const { patient, setPatient, isLoading, error } = useGetPatientDetail(id);
   const [activeHistory, setActiveHistory] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -123,13 +122,13 @@ export default function PatientDetailPage() {
       name: patient.name,
       email: patient.email,
       phone: patient.phone,
-      age: patient.age,
-      gender: patient.gender,
-      condition: patient.condition,
-      address: patient.address,
-      emergencyContact: patient.emergencyContact,
-      insurance: patient.insurance,
-      status: patient.status,
+      age: patient.age || "",
+      gender: patient.gender || "",
+      condition: patient.condition || "",
+      address: patient.addressLine === "-" ? "" : patient.addressLine || "",
+      emergencyContact: patient.emergencyContact || "",
+      insurance: patient.insurance || "",
+      status: patient.status || "active",
     });
     setEditOpen(true);
   }
@@ -139,16 +138,21 @@ export default function PatientDetailPage() {
   }
 
   function handleSave() {
-    patient.name = form.name;
-    patient.email = form.email;
-    patient.phone = form.phone;
-    patient.age = form.age;
-    patient.gender = form.gender;
-    patient.condition = form.condition;
-    patient.address = form.address;
-    patient.emergencyContact = form.emergencyContact;
-    patient.insurance = form.insurance;
-    patient.status = form.status;
+    const address = form.address.trim();
+    setPatient((current) => ({
+      ...current,
+      name: form.name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      age: form.age,
+      gender: form.gender,
+      condition: form.condition,
+      address: address || current.address,
+      addressLine: address || "-",
+      emergencyContact: form.emergencyContact,
+      insurance: form.insurance,
+      status: form.status,
+    }));
     setEditOpen(false);
   }
 
@@ -190,7 +194,7 @@ export default function PatientDetailPage() {
 </head>
 <body>
   <h1>Rekam Treatment Fisioterapi</h1>
-  <p class="muted">${patient.name} — ${patient.condition}</p>
+  <p class="muted">${patient.name} — ${patient.code}</p>
   <div class="meta">
     <div><strong>Terapis:</strong> ${item.therapist}</div>
     <div><strong>Tanggal:</strong> ${item.date}</div>
@@ -211,12 +215,20 @@ export default function PatientDetailPage() {
     printWindow.document.close();
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   if (!patient) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <p className="text-lg font-semibold">Pasien tidak ditemukan</p>
         <p className="text-sm text-muted-foreground">
-          Data pasien yang Anda cari tidak tersedia.
+          {error || "Data pasien yang Anda cari tidak tersedia."}
         </p>
         <Button variant="outline" onClick={() => navigate("/users/patients")}>
           <ArrowLeft className="h-4 w-4" />
@@ -228,10 +240,10 @@ export default function PatientDetailPage() {
 
   const summary = [
     { label: "Total Sesi", value: patient.sessions, icon: ClipboardList },
-    { label: "Usia", value: `${patient.age} thn`, icon: User },
-    { label: "Kondisi", value: patient.condition, icon: HeartPulse },
+    { label: "Bergabung", value: patient.joinedAt, icon: CalendarDays },
+    { label: "Terakhir Aktif", value: patient.lastActive, icon: Activity },
     {
-      label: "Terapis Utama",
+      label: "Terapis",
       value: patient.primaryTherapist,
       icon: Stethoscope,
     },
@@ -257,6 +269,9 @@ export default function PatientDetailPage() {
       <Card className="shadow-none">
         <CardContent className="flex flex-col gap-6 p-6 sm:flex-row sm:items-center">
           <Avatar className="h-20 w-20">
+            {patient.profile ? (
+              <AvatarImage src={patient.profile} alt={patient.name} />
+            ) : null}
             <AvatarFallback className="bg-blue-50 text-xl font-semibold text-blue-600">
               {initials(patient.name)}
             </AvatarFallback>
@@ -268,7 +283,7 @@ export default function PatientDetailPage() {
               </h1>
               <StatusBadge status={patient.status} />
             </div>
-            <p className="text-sm text-muted-foreground">{patient.condition}</p>
+            <p className="font-mono text-sm text-muted-foreground">{patient.code}</p>
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <Mail className="h-4 w-4" />
@@ -321,49 +336,36 @@ export default function PatientDetailPage() {
               </CardHeader>
               <CardContent className="grid gap-5 sm:grid-cols-2">
                 <InfoRow
-                  icon={User}
-                  label="Jenis Kelamin"
-                  value={patient.gender}
-                />
-                <InfoRow
                   icon={CalendarDays}
                   label="Bergabung Sejak"
                   value={patient.joinedAt}
                 />
+                <InfoRow icon={MapPin} label="Kota" value={patient.city || "-"} />
                 <InfoRow
-                  icon={Droplet}
-                  label="Golongan Darah"
-                  value={patient.bloodType}
+                  icon={MapPin}
+                  label="Provinsi"
+                  value={patient.province || "-"}
                 />
                 <InfoRow
-                  icon={Ruler}
-                  label="Tinggi Badan"
-                  value={patient.height}
+                  icon={MapPin}
+                  label="Kode Pos"
+                  value={patient.postalCode || "-"}
                 />
                 <InfoRow
-                  icon={Weight}
-                  label="Berat Badan"
-                  value={patient.weight}
-                />
-                <InfoRow
-                  icon={Shield}
-                  label="Asuransi"
-                  value={patient.insurance}
+                  icon={MapPin}
+                  label="Alamat"
+                  value={patient.addressLine}
                 />
               </CardContent>
             </Card>
 
             <Card className="shadow-none">
               <CardHeader>
-                <CardTitle className="text-base">Kontak Darurat</CardTitle>
+                <CardTitle className="text-base">Kontak</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <InfoRow
-                  icon={Phone}
-                  label="Kontak Darurat"
-                  value={patient.emergencyContact}
-                />
                 <InfoRow icon={Mail} label="Email" value={patient.email} />
+                <InfoRow icon={Phone} label="Telepon" value={patient.phone} />
                 <InfoRow icon={MapPin} label="Alamat" value={patient.address} />
               </CardContent>
             </Card>
@@ -377,38 +379,30 @@ export default function PatientDetailPage() {
                 <CardTitle className="text-base">Catatan Medis</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <InfoRow
-                  icon={HeartPulse}
-                  label="Kondisi Utama"
-                  value={patient.condition}
-                />
-                <InfoRow
-                  icon={Activity}
-                  label="Catatan Terapis"
-                  value={patient.medical.notes}
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-none">
-              <CardHeader>
-                <CardTitle className="text-base">Riwayat Kesehatan</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="mb-1 text-xs text-muted-foreground">Alergi</p>
-                  <p className="text-sm font-medium">
-                    {patient.medical.allergies.join(", ")}
+                {patient.medicalRecords.length ? (
+                  patient.medicalRecords.map((record) => (
+                    <div key={record.id} className="space-y-4">
+                      {record.fields.length ? (
+                        record.fields.map((field) => (
+                          <div key={`${record.id}-${field.label}`}>
+                            <p className="mb-1 text-xs text-muted-foreground">
+                              {field.label}
+                            </p>
+                            <p className="text-sm font-medium">{field.value}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          Rekam medis belum tersedia.
+                        </p>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Rekam medis belum tersedia.
                   </p>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs text-muted-foreground">
-                    Kondisi Kronis
-                  </p>
-                  <p className="text-sm font-medium">
-                    {patient.medical.chronicConditions.join(", ")}
-                  </p>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -429,6 +423,16 @@ export default function PatientDetailPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {patient.history.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Belum ada riwayat kunjungan.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                   {patient.history.map((item) => (
                     <TableRow
                       key={item.id}
@@ -475,20 +479,28 @@ export default function PatientDetailPage() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Tanggal</TableHead>
-                    <TableHead>Invoice</TableHead>
-                    <TableHead>Metode</TableHead>
+                    <TableHead>Kode Booking</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Nominal</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {patient.payments.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Belum ada pembayaran.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                   {patient.payments.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{item.date}</TableCell>
-                      <TableCell className="font-medium">
-                        {item.invoice}
+                      <TableCell className="font-mono text-xs font-medium">
+                        {item.code}
                       </TableCell>
-                      <TableCell>{item.method}</TableCell>
                       <TableCell>
                         <StatusBadge status={item.status} />
                       </TableCell>
@@ -520,57 +532,62 @@ export default function PatientDetailPage() {
 
           {activeHistory ? (
             <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-1">
-              <SoapSection
-                label="Subjective"
-                value={activeHistory.subjective}
-              />
-              <SoapSection label="Objective" value={activeHistory.objective} />
-              <SoapSection
-                label="Assessment"
-                value={activeHistory.assessment}
-              />
-              <SoapSection label="Plan" value={activeHistory.plan} />
-
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Uploaded Inform Consent
-                </p>
-                {activeHistory.informConsent?.url ? (
-                  <a
-                    href={activeHistory.informConsent.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors hover:bg-muted/50"
-                  >
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    {activeHistory.informConsent.name}
-                  </a>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Tidak ada dokumen
-                  </p>
-                )}
-              </div>
+              {activeHistory.subjective ||
+              activeHistory.objective ||
+              activeHistory.assessment ||
+              activeHistory.plan ? (
+                <>
+                  <SoapSection
+                    label="Subjective"
+                    value={activeHistory.subjective}
+                  />
+                  <SoapSection
+                    label="Objective"
+                    value={activeHistory.objective}
+                  />
+                  <SoapSection
+                    label="Assessment"
+                    value={activeHistory.assessment}
+                  />
+                  <SoapSection label="Plan" value={activeHistory.plan} />
+                </>
+              ) : null}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex items-start gap-3 rounded-lg border p-3">
+                  <ClipboardList className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Kode Booking</p>
+                    <p className="font-mono text-sm font-medium">
+                      {activeHistory.code || "-"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-lg border p-3">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Kota</p>
+                    <p className="text-sm font-medium">
+                      {activeHistory.city || "-"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-lg border p-3">
                   <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-muted-foreground">
-                      Jadwal Kunjungan Berikutnya
-                    </p>
+                    <p className="text-xs text-muted-foreground">Jam</p>
                     <p className="text-sm font-medium">
-                      {activeHistory.nextVisit || "-"}
+                      {activeHistory.time || "-"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 rounded-lg border p-3">
                   <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Catatan</p>
-                    <p className="text-sm font-medium">
-                      {activeHistory.notes || "-"}
-                    </p>
+                    <p className="text-xs text-muted-foreground">Pembayaran</p>
+                    <div className="mt-1">
+                      <StatusBadge status={activeHistory.paymentStatus} />
+                    </div>
                   </div>
                 </div>
               </div>

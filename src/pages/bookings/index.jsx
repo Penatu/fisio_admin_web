@@ -1,42 +1,49 @@
-import { useNavigate } from "react-router-dom"
-import { CalendarCheck, CalendarClock, CalendarX, ClipboardList, Eye, Pencil } from "lucide-react"
-import { PageLayout } from "@/components/layout/page-layout"
-import { StatusBadge } from "@/components/shared/status-badge"
-import { Button } from "@/components/ui/button"
-import { useGetBookingList } from "@/pages/bookings/hooks/useGetBookingList"
+import { useNavigate } from "react-router-dom";
+import {
+  CalendarCheck,
+  CalendarClock,
+  CalendarX,
+  ClipboardList,
+  Eye,
+  Pencil,
+} from "lucide-react";
+import { PageLayout } from "@/components/layout/page-layout";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { Button } from "@/components/ui/button";
+import { useGetBookingList } from "@/pages/bookings/hooks/useGetBookingList";
 
 const STATUS_FILTERS = [
   { label: "New", value: "new" },
   { label: "Confirmed", value: "confirmed" },
-  { label: "Pending", value: "pending" },
+  { label: "Visit", value: "visit" },
   { label: "Completed", value: "completed" },
-  { label: "Cancelled", value: "cancelled" },
-]
+  { label: "Canceled", value: "canceled" },
+];
 
 const PAYMENT_FILTERS = [
   { label: "Pending", value: "pending" },
   { label: "Paid", value: "paid" },
   { label: "Unpaid", value: "unpaid" },
   { label: "Refunded", value: "refunded" },
-]
+];
 
 function formatCount(value) {
-  return Number(value || 0).toLocaleString("en-US")
+  return Number(value || 0).toLocaleString("en-US");
 }
 
 function formatDate(value) {
-  if (!value) return "-"
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  })
+  });
 }
 
 export default function BookingsPage() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   const {
     bookings,
     summary,
@@ -51,23 +58,57 @@ export default function BookingsPage() {
     setPaymentStatus,
     setPage,
     setPerPage,
-  } = useGetBookingList()
+  } = useGetBookingList();
 
-  const goToDetail = (code) => navigate(`/bookings/${code}`)
+  const goToDetail = (code) => navigate(`/bookings/${code}`);
 
   const stats = [
-    { title: "Total Bookings", value: formatCount(summary.totalBookings), description: "Semua booking", icon: ClipboardList },
-    { title: "Confirmed", value: formatCount(summary.confirmed), description: "Booking terkonfirmasi", icon: CalendarCheck },
-    { title: "Pending", value: formatCount(summary.pending), description: "Menunggu konfirmasi", icon: CalendarClock },
-    { title: "Cancelled", value: formatCount(summary.cancelled), description: "Booking dibatalkan", icon: CalendarX },
-  ]
+    {
+      title: "Total Bookings",
+      value: formatCount(summary.totalBookings),
+      description: "Semua booking",
+      icon: ClipboardList,
+    },
+    {
+      title: "Confirmed",
+      value: formatCount(summary.confirmed),
+      description: "Booking terkonfirmasi",
+      icon: CalendarCheck,
+    },
+    {
+      title: "Pending",
+      value: formatCount(summary.pending),
+      description: "Menunggu konfirmasi",
+      icon: CalendarClock,
+    },
+    {
+      title: "Cancelled",
+      value: formatCount(summary.cancelled),
+      description: "Booking dibatalkan",
+      icon: CalendarX,
+    },
+  ];
 
   const columns = [
-    { key: "date", label: "Booking Date", render: (row) => formatDate(row.date) },
+    {
+      key: "date",
+      label: "Booking Date",
+      render: (row) => formatDate(row.date),
+    },
     { key: "time", label: "Time", render: (row) => row.time?.trim() || "-" },
-    { key: "code", label: "Booking Code", render: (row) => <span className="font-mono text-xs">{row.code || "-"}</span> },
+    {
+      key: "code",
+      label: "Booking Code",
+      render: (row) => (
+        <span className="font-mono text-xs">{row.code || "-"}</span>
+      ),
+    },
     { key: "patient", label: "Patient", render: (row) => row.patient || "-" },
-    { key: "therapist", label: "Therapist", render: (row) => row.therapist || "-" },
+    {
+      key: "therapist",
+      label: "Therapist",
+      render: (row) => row.therapist || "-",
+    },
     { key: "service", label: "Service", render: (row) => row.service || "-" },
     {
       key: "orderStatus",
@@ -83,7 +124,10 @@ export default function BookingsPage() {
       key: "actions",
       label: "Action",
       render: (row) => (
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Button
             variant="ghost"
             size="icon"
@@ -103,7 +147,7 @@ export default function BookingsPage() {
         </div>
       ),
     },
-  ]
+  ];
 
   return (
     <PageLayout
@@ -131,5 +175,5 @@ export default function BookingsPage() {
       }}
       onRowClick={(row) => goToDetail(row.code)}
     />
-  )
+  );
 }

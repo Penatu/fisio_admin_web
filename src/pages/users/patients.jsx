@@ -1,22 +1,55 @@
 import { useNavigate } from "react-router-dom"
-import { Calendar, Eye, HeartPulse, Pencil, UserCheck, Users } from "lucide-react"
+import { Eye, Pencil, Users } from "lucide-react"
 import { PageLayout } from "@/components/layout/page-layout"
-import { StatusBadge } from "@/components/shared/status-badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { patients } from "@/lib/patients-data"
+import { useGetPatientList } from "@/pages/users/hooks/useGetPatientList"
 
-const stats = [
-  { title: "Total Patients", value: "3,562", description: "+234 new this month", icon: Users },
-  { title: "Active Patients", value: "2,890", description: "81% retention rate", icon: UserCheck },
-  { title: "Total Sessions", value: "12,450", description: "Avg. 3.5 per patient", icon: Calendar },
-  { title: "Chronic Cases", value: "428", description: "Requiring ongoing care", icon: HeartPulse },
-]
+function displayValue(value) {
+  return String(value ?? "").trim() || "-"
+}
+
+function initials(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean)
+  if (!parts.length) return "?"
+  return parts.map((part) => part[0]).join("").slice(0, 2).toUpperCase()
+}
+
+function formatDate(value) {
+  if (!value) return "-"
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
 
 export default function PatientsPage() {
   const navigate = useNavigate()
+  const {
+    patients,
+    totalPatients,
+    pagination,
+    isLoading,
+    error,
+    search,
+    setSearch,
+    setPage,
+    setPerPage,
+  } = useGetPatientList()
 
-  const goToDetail = (id) => navigate(`/users/patients/${id}`)
+  const goToDetail = (code) => navigate(`/users/patients/${code}`)
+
+  const stats = [
+    {
+      title: "Total Patients",
+      value: Number(totalPatients || 0).toLocaleString("en-US"),
+      description: "Semua pasien",
+      icon: Users,
+    },
+  ]
 
   const columns = [
     {
@@ -26,19 +59,18 @@ export default function PatientsPage() {
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-blue-50 text-xs text-blue-600">
-              {row.name.split(" ").map((n) => n[0]).join("")}
+              {initials(row.name)}
             </AvatarFallback>
           </Avatar>
-          <span className="font-medium">{row.name}</span>
+          <span className="font-medium">{displayValue(row.name)}</span>
         </div>
       ),
     },
-    { key: "email", label: "Email" },
-    { key: "phone", label: "Phone" },
-    { key: "age", label: "Age" },
-    { key: "condition", label: "Condition" },
-    { key: "sessions", label: "Sessions" },
-    { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    { key: "email", label: "Email", render: (row) => displayValue(row.email) },
+    { key: "phone", label: "Phone", render: (row) => displayValue(row.phone) },
+    { key: "address", label: "Address", render: (row) => displayValue(row.address) },
+    { key: "joinedAt", label: "Joined At", render: (row) => formatDate(row.joinedAt) },
+    { key: "sessions", label: "Sessions", render: (row) => row.totalSessions ?? 0 },
     {
       key: "actions",
       label: "Action",
@@ -48,7 +80,7 @@ export default function PatientsPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-            onClick={() => goToDetail(row.id)}
+            onClick={() => goToDetail(row.code)}
           >
             <Eye className="h-4 w-4" />
           </Button>
@@ -56,7 +88,7 @@ export default function PatientsPage() {
             variant="ghost"
             size="icon"
             className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-            onClick={() => goToDetail(row.id)}
+            onClick={() => goToDetail(row.code)}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -69,11 +101,20 @@ export default function PatientsPage() {
     <PageLayout
       title="Patient Management"
       stats={stats}
-      searchPlaceholder="Filter patients..."
-      statusFilters={["Active", "Inactive"]}
+      searchPlaceholder="Cari pasien..."
       columns={columns}
       data={patients}
-      onRowClick={(row) => goToDetail(row.id)}
+      isLoading={isLoading}
+      error={error}
+      emptyMessage="Tidak ada pasien."
+      searchValue={search}
+      onSearchChange={setSearch}
+      pagination={{
+        ...pagination,
+        onPageChange: setPage,
+        onPerPageChange: setPerPage,
+      }}
+      onRowClick={(row) => goToDetail(row.code)}
       showDatePicker={false}
     />
   )
