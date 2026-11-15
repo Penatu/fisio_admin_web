@@ -1,73 +1,175 @@
+import { useNavigate } from "react-router-dom"
 import {
   CalendarCheck,
   CreditCard,
+  Eye,
+  Pencil,
   Stethoscope,
   Users,
 } from "lucide-react"
 import { PageLayout } from "@/components/layout/page-layout"
-import { ActionButtons } from "@/components/shared/page-toolbar"
 import { StatusBadge } from "@/components/shared/status-badge"
+import { Button } from "@/components/ui/button"
+import { useGetDashboardSummary } from "@/pages/dashboard/hooks/useGetDashboardSummary"
+import { useGetRecentBookings } from "@/pages/dashboard/hooks/useGetRecentBookings"
 
-const stats = [
-  {
-    title: "Total Bookings",
-    value: "1,284",
-    description: "78 bookings today",
-    icon: CalendarCheck,
-    trend: { value: "+12.5% from last month", positive: true },
-  },
-  {
-    title: "Active Therapists",
-    value: "48",
-    description: "6 available now",
-    icon: Stethoscope,
-  },
-  {
-    title: "Registered Patients",
-    value: "3,562",
-    description: "+234 new this month",
-    icon: Users,
-    trend: { value: "+8.2% from last month", positive: true },
-  },
-  {
-    title: "Revenue",
-    value: "Rp 124.5M",
-    description: "This month",
-    icon: CreditCard,
-    trend: { value: "+18.3% from last month", positive: true },
-  },
+const STATUS_FILTERS = [
+  { label: "New", value: "new" },
+  { label: "Confirmed", value: "confirmed" },
+  { label: "Visit", value: "visit" },
+  { label: "Finished", value: "finished" },
+  { label: "Canceled", value: "canceled" },
 ]
 
-const recentBookings = [
-  { id: 1, date: "Jul 24, 2026", time: "09:00", code: "BK-2026-001", patient: "Ahmad Rizki", therapist: "Dr. Sari", service: "Home Visit", status: "confirmed", amount: "Rp 350.000" },
-  { id: 2, date: "Jul 24, 2026", time: "10:30", code: "BK-2026-002", patient: "Budi Santoso", therapist: "Dr. Andi", service: "Sports Rehab", status: "new", amount: "Rp 450.000" },
-  { id: 3, date: "Jul 24, 2026", time: "11:00", code: "BK-2026-003", patient: "Citra Dewi", therapist: "Dr. Maya", service: "Post-Surgery", status: "pending", amount: "Rp 500.000" },
-  { id: 4, date: "Jul 24, 2026", time: "13:00", code: "BK-2026-004", patient: "Dewi Lestari", therapist: "Dr. Rudi", service: "Manual Therapy", status: "completed", amount: "Rp 300.000" },
-  { id: 5, date: "Jul 24, 2026", time: "14:30", code: "BK-2026-005", patient: "Eko Prasetyo", therapist: "Dr. Sari", service: "Home Visit", status: "cancelled", amount: "Rp 350.000" },
+const PAYMENT_FILTERS = [
+  { label: "Paid", value: "paid" },
+  { label: "Unpaid", value: "unpaid" },
+  { label: "Rejected", value: "rejected" },
 ]
 
-const columns = [
-  { key: "date", label: "Booking Date" },
-  { key: "time", label: "Time" },
-  { key: "code", label: "Booking Code" },
-  { key: "patient", label: "Patient" },
-  { key: "therapist", label: "Therapist" },
-  { key: "service", label: "Service" },
-  { key: "status", label: "Status", render: (row) => <StatusBadge status={row.status} /> },
-  { key: "amount", label: "Amount" },
-  { key: "actions", label: "Action", render: () => <ActionButtons /> },
-]
+function formatCount(value) {
+  return Number(value || 0).toLocaleString("en-US")
+}
+
+function formatDate(value) {
+  if (!value) return "-"
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+function trendFrom(label, value) {
+  if (!label) return undefined
+  return { value: label, positive: Number(value) >= 0 }
+}
 
 export default function DashboardPage() {
+  const navigate = useNavigate()
+  const { summary, isLoading: isSummaryLoading } = useGetDashboardSummary()
+  const {
+    bookings,
+    pagination,
+    isLoading,
+    error,
+    search,
+    status,
+    paymentStatus,
+    setSearch,
+    setStatus,
+    setPaymentStatus,
+    setPage,
+    setPerPage,
+  } = useGetRecentBookings()
+
+  const goToDetail = (code) => navigate(`/bookings/${code}`)
+  const count = (value) => (isSummaryLoading ? "..." : formatCount(value))
+
+  const stats = [
+    {
+      title: "Total Bookings",
+      value: count(summary.totalBookings),
+      description: isSummaryLoading ? "Memuat..." : `${formatCount(summary.bookingsToday)} bookings today`,
+      icon: CalendarCheck,
+      trend: trendFrom(summary.bookingsTrendLabel, summary.bookingsTrend),
+    },
+    {
+      title: "Active Therapists",
+      value: count(summary.activeTherapists),
+      description: isSummaryLoading
+        ? "Memuat..."
+        : summary.availableTherapistsLabel || `${formatCount(summary.availableTherapists)} available now`,
+      icon: Stethoscope,
+    },
+    {
+      title: "Registered Patients",
+      value: count(summary.registeredPatients),
+      description: isSummaryLoading
+        ? "Memuat..."
+        : `+${formatCount(summary.newPatientsThisMonth)} new this month`,
+      icon: Users,
+      trend: trendFrom(summary.patientsTrendLabel, summary.patientsTrend),
+    },
+    {
+      title: "Revenue",
+      value: isSummaryLoading ? "..." : summary.revenueThisMonthFormatted || "Rp 0",
+      description: "This month",
+      icon: CreditCard,
+      trend: trendFrom(summary.revenueTrendLabel, summary.revenueTrend),
+    },
+  ]
+
+  const columns = [
+    { key: "date", label: "Booking Date", render: (row) => formatDate(row.date) },
+    { key: "time", label: "Time", render: (row) => row.time?.trim() || "-" },
+    {
+      key: "code",
+      label: "Booking Code",
+      render: (row) => <span className="font-mono text-xs">{row.code || "-"}</span>,
+    },
+    { key: "patient", label: "Patient", render: (row) => row.patient || "-" },
+    { key: "therapist", label: "Therapist", render: (row) => row.therapist || "-" },
+    { key: "service", label: "Service", render: (row) => row.service || "-" },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+    { key: "amount", label: "Amount", render: (row) => row.amountFormatted || "-" },
+    {
+      key: "actions",
+      label: "Action",
+      render: (row) => (
+        <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+            onClick={() => goToDetail(row.code)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+            onClick={() => goToDetail(row.code)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
   return (
     <PageLayout
       title="Dashboard"
       stats={stats}
       searchPlaceholder="Filter bookings..."
-      statusFilters={["New", "Confirmed", "Completed", "Cancelled"]}
-      paymentFilters={["Paid", "Unpaid"]}
+      statusFilters={STATUS_FILTERS}
+      paymentFilters={PAYMENT_FILTERS}
+      showDatePicker={false}
       columns={columns}
-      data={recentBookings}
+      data={bookings}
+      isLoading={isLoading}
+      error={error}
+      emptyMessage="Tidak ada booking."
+      searchValue={search}
+      onSearchChange={setSearch}
+      selectedStatus={status}
+      onStatusChange={setStatus}
+      selectedPayment={paymentStatus}
+      onPaymentChange={setPaymentStatus}
+      pagination={{
+        ...pagination,
+        onPageChange: setPage,
+        onPerPageChange: setPerPage,
+      }}
+      onRowClick={(row) => goToDetail(row.code)}
     />
   )
 }

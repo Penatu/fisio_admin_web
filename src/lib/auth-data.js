@@ -22,6 +22,10 @@ export function isTokenExpired(token) {
   return payload.exp * 1000 <= Date.now()
 }
 
+export function isSuperAdminRole(role) {
+  return String(role ?? "").toLowerCase().replace(/[_\s-]+/g, "") === "superadmin"
+}
+
 export function buildSessionUser(data) {
   const claims = decodeTokenPayload(data?.token) || {}
 

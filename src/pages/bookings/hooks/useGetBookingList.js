@@ -14,9 +14,11 @@ const EMPTY_PAGINATION = {
 
 const EMPTY_SUMMARY = {
   totalBookings: 0,
+  new: 0,
   confirmed: 0,
-  pending: 0,
-  cancelled: 0,
+  visit: 0,
+  finished: 0,
+  canceled: 0,
 }
 
 export function useGetBookingList() {

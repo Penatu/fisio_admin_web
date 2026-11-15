@@ -29,6 +29,7 @@ export function AreaChart({
   className,
   currentLabel = "Current period",
   previousLabel = "Previous period",
+  gradientId = "areaGradient",
 }) {
   const width = 800
   const height = 280
@@ -58,7 +59,10 @@ export function AreaChart({
       <div className="w-full overflow-x-auto">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="min-w-[640px] h-[260px] w-full"
+          className={cn(
+            "h-[260px] w-full",
+            labels.length > 7 ? "min-w-[960px]" : "min-w-[640px]"
+          )}
           role="img"
           aria-label="Report chart"
         >
@@ -95,7 +99,7 @@ export function AreaChart({
 
           <path
             d={toAreaPath(currentPoints, height, padY)}
-            fill="url(#areaGradient)"
+            fill={`url(#${gradientId})`}
             className="text-primary"
           />
           <path
@@ -107,7 +111,7 @@ export function AreaChart({
           />
 
           <defs>
-            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="currentColor" stopOpacity="0.35" />
               <stop offset="100%" stopColor="currentColor" stopOpacity="0.02" />
             </linearGradient>

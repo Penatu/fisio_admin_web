@@ -1,3 +1,6 @@
+import { getBookingById, getTherapistPayout, getUnpaidPayrollBookings } from "@/lib/bookings-data"
+import { therapists } from "@/lib/therapists-data"
+
 export const reportTabs = [
   { value: "revenue", label: "Revenue" },
   { value: "occupancy", label: "Occupancy" },
@@ -221,61 +224,193 @@ export const payrollReport = {
   },
   list: [
     {
-      id: "pay-1",
+      id: "pay-1a",
+      therapistId: 1,
       title: "Dr. Sari Wulandari",
-      subtitle: "Sports Rehabilitation",
-      period: "19–25 Jul 2026",
-      amount: "Rp 6.4M",
-      sessions: 28,
+      city: "Jakarta Selatan",
+      period: "12–18 Jul 2026",
+      amount: 2400000,
+      sessions: 4,
       sharePct: "60%",
-      change: 8.2,
       status: "paid",
+      paidAt: "2026-07-18",
+      orders: [
+        { code: "BK-2026-110", patient: "Sinta Rahma", service: "Home Visit", date: "2026-07-14", payout: 600000 },
+        { code: "BK-2026-111", patient: "Raka Pratama", service: "Sports Rehab", date: "2026-07-15", payout: 600000 },
+        { code: "BK-2026-112", patient: "Dina Kusuma", service: "Home Visit", date: "2026-07-16", payout: 600000 },
+        { code: "BK-2026-113", patient: "Fajar Nugroho", service: "Manual Therapy", date: "2026-07-17", payout: 600000 },
+      ],
+    },
+    {
+      id: "pay-1b",
+      therapistId: 1,
+      title: "Dr. Sari Wulandari",
+      city: "Jakarta Selatan",
+      period: "19–25 Jul 2026",
+      amount: 4000000,
+      sessions: 5,
+      sharePct: "60%",
+      status: "paid",
+      paidAt: "2026-07-25",
+      orders: [
+        { code: "BK-2026-114", patient: "Gilang Saputra", service: "Home Visit", date: "2026-07-20", payout: 800000 },
+        { code: "BK-2026-115", patient: "Hana Putri", service: "Sports Rehab", date: "2026-07-21", payout: 800000 },
+        { code: "BK-2026-116", patient: "Indra Wijaya", service: "Home Visit", date: "2026-07-22", payout: 800000 },
+        { code: "BK-2026-117", patient: "Jihan Aulia", service: "Manual Therapy", date: "2026-07-23", payout: 800000 },
+        { code: "BK-2026-118", patient: "Kevin Santoso", service: "Home Visit", date: "2026-07-24", payout: 800000 },
+      ],
     },
     {
       id: "pay-2",
+      therapistId: 2,
       title: "Dr. Andi Pratama",
-      subtitle: "Manual Therapy",
+      city: "Bandung",
       period: "19–25 Jul 2026",
-      amount: "Rp 5.1M",
-      sessions: 22,
+      amount: 5100000,
+      sessions: 3,
       sharePct: "70%",
-      change: 3.4,
       status: "paid",
+      paidAt: "2026-07-25",
+      orders: [
+        { code: "BK-2026-210", patient: "Laras Ayu", service: "Manual Therapy", date: "2026-07-20", payout: 1700000 },
+        { code: "BK-2026-211", patient: "Mario Tan", service: "Sports Rehab", date: "2026-07-22", payout: 1700000 },
+        { code: "BK-2026-212", patient: "Nadia Putri", service: "Home Visit", date: "2026-07-24", payout: 1700000 },
+      ],
     },
     {
       id: "pay-3",
+      therapistId: 3,
       title: "Dr. Maya Sari",
-      subtitle: "Post-Surgery Rehab",
+      city: "Surabaya",
       period: "19–25 Jul 2026",
-      amount: "Rp 7.2M",
-      sessions: 24,
+      amount: 7200000,
+      sessions: 3,
       sharePct: "65%",
-      change: -1.8,
       status: "paid",
+      paidAt: "2026-07-25",
+      orders: [
+        { code: "BK-2026-310", patient: "Omar Fadhil", service: "Post-Surgery", date: "2026-07-19", payout: 2400000 },
+        { code: "BK-2026-311", patient: "Putri Anindya", service: "Home Visit", date: "2026-07-21", payout: 2400000 },
+        { code: "BK-2026-312", patient: "Qori Rahman", service: "Manual Therapy", date: "2026-07-23", payout: 2400000 },
+      ],
     },
     {
       id: "pay-4",
+      therapistId: 4,
       title: "Dr. Rudi Hartono",
-      subtitle: "Pediatric Physio",
+      city: "Yogyakarta",
       period: "19–25 Jul 2026",
-      amount: "Rp 3.4M",
-      sessions: 14,
+      amount: 3400000,
+      sessions: 3,
       sharePct: "65%",
-      change: 12.0,
       status: "unpaid",
+      paidAt: "",
+      orders: [
+        { code: "BK-2026-004", patient: "Dewi Lestari", service: "Manual Therapy", date: "2026-07-24", payout: 210000 },
+        { code: "BK-2026-410", patient: "Rian Mahendra", service: "Home Visit", date: "2026-07-22", payout: 1595000 },
+        { code: "BK-2026-411", patient: "Salsa Amelia", service: "Pediatric Physio", date: "2026-07-23", payout: 1595000 },
+      ],
     },
     {
       id: "pay-5",
+      therapistId: 5,
       title: "Dr. Linda Kusuma",
-      subtitle: "Geriatric Care",
+      city: "Semarang",
       period: "19–25 Jul 2026",
-      amount: "Rp 2.5M",
-      sessions: 10,
+      amount: 2500000,
+      sessions: 2,
       sharePct: "60%",
-      change: -4.5,
       status: "paid",
+      paidAt: "2026-07-24",
+      orders: [
+        { code: "BK-2026-510", patient: "Tari Wulandari", service: "Geriatric Care", date: "2026-07-21", payout: 1250000 },
+        { code: "BK-2026-511", patient: "Umar Hakim", service: "Home Visit", date: "2026-07-23", payout: 1250000 },
+      ],
     },
   ],
+}
+
+export function getTherapistOrders(therapist) {
+  const payrollOrders = (therapist?.payrolls || []).flatMap((payroll) =>
+    (payroll.orders || []).map((order) => ({
+      ...order,
+      payrollId: payroll.id,
+      payrollPeriod: payroll.period,
+      status: String(payroll.status).toLowerCase() === "paid" ? "paid" : "unpaid",
+    }))
+  )
+  const covered = new Set(payrollOrders.map((order) => order.code))
+  const unpaidOrders = getUnpaidPayrollBookings(therapist?.id)
+    .filter((booking) => !covered.has(booking.code))
+    .map((booking) => ({
+      code: booking.code,
+      patient: booking.patient,
+      service: booking.service,
+      date: booking.date,
+      payout: getTherapistPayout(booking),
+      status: "unpaid",
+      payrollId: "",
+      payrollPeriod: "",
+    }))
+
+  return [...payrollOrders, ...unpaidOrders]
+}
+
+export function formatPayrollDate(value) {
+  if (!value) return "-"
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00`)
+    : new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })
+}
+
+export function groupPayrollByTherapist(list) {
+  const groups = new Map()
+
+  for (const row of list || []) {
+    const key = String(row.therapistId || row.title)
+    if (!groups.has(key)) {
+      groups.set(key, {
+        id: key,
+        name: row.title,
+        city: row.city || "-",
+        payrolls: [],
+      })
+    }
+    groups.get(key).payrolls.push(row)
+  }
+
+  return [...groups.values()].map((group) => {
+    const payrolls = [...group.payrolls].sort((a, b) =>
+      String(b.paidAt || b.period || "").localeCompare(String(a.paidAt || a.period || ""))
+    )
+    const paid = payrolls.filter((row) => String(row.status).toLowerCase() === "paid")
+    const outstanding = payrolls.filter((row) => String(row.status).toLowerCase() !== "paid")
+    const sum = (rows, field) => rows.reduce((total, row) => total + (Number(row[field]) || 0), 0)
+    const lastPayment = paid
+      .map((row) => row.paidAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1)
+
+    return {
+      ...group,
+      payrolls,
+      totalAmount: sum(payrolls, "amount"),
+      totalSessions: sum(payrolls, "sessions"),
+      paidAmount: sum(paid, "amount"),
+      paidSessions: sum(paid, "sessions"),
+      outstandingAmount: sum(outstanding, "amount"),
+      outstandingSessions: sum(outstanding, "sessions"),
+      lastPayment: lastPayment || "",
+      status: outstanding.length > 0 ? "unpaid" : "paid",
+    }
+  })
 }
 
 const details = {
@@ -462,38 +597,40 @@ export function formatPayrollAmount(value) {
 }
 
 export function createPayroll(form) {
+  const therapist = therapists.find((item) => String(item.id) === String(form.therapistId))
   const id = `pay-new-${createdPayrolls.length + 1}`
+  const paidAt = form.status === "paid" ? new Date().toISOString().slice(0, 10) : ""
+  const orders = (form.bookingIds || []).map((bookingId) => {
+    const booking = getBookingById(bookingId)
+    return {
+      code: booking?.code || String(bookingId),
+      patient: booking?.patient || "-",
+      service: booking?.service || "-",
+      date: booking?.date || "",
+      payout: booking ? getTherapistPayout(booking) : 0,
+    }
+  })
   const entry = {
     id,
-    title: form.therapistName,
-    subtitle: form.period || "Custom period",
-    period: form.period,
-    amount: formatPayrollAmount(form.totalPayout),
-    sessions: form.bookingIds.length,
-    sharePct: `${form.sharePct}%`,
-    change: 0,
-    status: form.status,
     therapistId: form.therapistId,
+    title: form.therapistName,
+    city: therapist?.location || "-",
+    period: form.period,
+    amount: Number(form.totalPayout) || 0,
+    sessions: orders.length,
+    sharePct: `${form.sharePct}%`,
+    status: form.status,
+    paidAt,
+    orders,
     bankAccount: form.bankAccount,
     paymentMethod: form.paymentMethod,
     notes: form.notes,
     bookingIds: form.bookingIds,
-    totalPayout: form.totalPayout,
     createdAt: new Date().toLocaleString("id-ID"),
   }
 
   createdPayrolls.unshift(entry)
-  payrollReport.list.unshift({
-    id: entry.id,
-    title: entry.title,
-    subtitle: entry.subtitle,
-    period: entry.period,
-    amount: entry.amount,
-    sessions: entry.sessions,
-    sharePct: entry.sharePct,
-    change: 0,
-    status: entry.status,
-  })
+  payrollReport.list.unshift(entry)
 
   return entry
 }

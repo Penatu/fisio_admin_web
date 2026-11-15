@@ -17,6 +17,9 @@ export default function ReportDetailPage() {
   const { type, id } = useParams()
   const navigate = useNavigate()
   const detail = getReportDetail(type, id)
+  const listPath = ["revenue", "occupancy", "payroll"].includes(type)
+    ? `/reports/${type}`
+    : "/reports/revenue"
 
   if (!detail) {
     return (
@@ -25,7 +28,7 @@ export default function ReportDetailPage() {
         <p className="text-sm text-muted-foreground">
           Data laporan yang Anda cari tidak tersedia.
         </p>
-        <Button variant="outline" onClick={() => navigate("/reports")}>
+        <Button variant="outline" onClick={() => navigate(listPath)}>
           <ArrowLeft className="h-4 w-4" />
           Kembali ke reports
         </Button>
@@ -39,7 +42,7 @@ export default function ReportDetailPage() {
         <Button
           variant="ghost"
           className="gap-2 px-2 text-muted-foreground hover:text-foreground"
-          onClick={() => navigate("/reports")}
+          onClick={() => navigate(listPath)}
         >
           <ArrowLeft className="h-4 w-4" />
           Kembali

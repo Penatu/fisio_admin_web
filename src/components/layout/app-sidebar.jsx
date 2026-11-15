@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import {
   Activity,
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  CircleDollarSign,
+  Clock,
   CreditCard,
   FileBarChart,
   HeartPulse,
@@ -14,6 +16,7 @@ import {
   Stethoscope,
   UserCog,
   Users,
+  Wallet,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -58,16 +61,28 @@ const navItems = [
   {
     title: "Report",
     icon: FileBarChart,
-    href: "/reports",
+    children: [
+      { title: "Revenue", href: "/reports/revenue", icon: CircleDollarSign },
+      { title: "Occupancy", href: "/reports/occupancy", icon: Clock },
+      { title: "Payroll", href: "/reports/payroll", icon: Wallet },
+    ],
   },
 ]
+
+function matchesPath(pathname, href) {
+  return pathname === href || pathname.startsWith(`${href}/`)
+}
 
 function NavItem({ item, collapsed }) {
   const location = useLocation()
   const hasChildren = item.children?.length > 0
-  const isChildActive = item.children?.some((child) => location.pathname === child.href)
+  const isChildActive = item.children?.some((child) => matchesPath(location.pathname, child.href))
   const isActive = item.href ? location.pathname === item.href : isChildActive
   const [open, setOpen] = useState(isChildActive)
+
+  useEffect(() => {
+    if (isChildActive) setOpen(true)
+  }, [isChildActive])
 
   if (hasChildren) {
     return (
@@ -95,7 +110,7 @@ function NavItem({ item, collapsed }) {
         {!collapsed && (
           <CollapsibleContent className="mt-1 space-y-1 pl-4">
             {item.children.map((child) => {
-              const isChildItemActive = location.pathname === child.href
+              const isChildItemActive = matchesPath(location.pathname, child.href)
               return (
                 <Link
                   key={child.href}

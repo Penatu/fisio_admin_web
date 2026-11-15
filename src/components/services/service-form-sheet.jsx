@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Plus } from "lucide-react"
-import { serviceCategories } from "@/lib/services-data"
+import { useGetCategoryList } from "@/pages/services/hooks/useGetCategoryList"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +17,7 @@ import {
 
 const emptyForm = {
   name: "",
-  category: "",
+  categoryId: "",
   duration: "",
   price: "",
   description: "",
@@ -38,22 +38,35 @@ export function ServiceFormSheet({
   submitIcon = true,
   initialValues,
   onSubmit,
+  isSubmitting = false,
+  error = "",
 }) {
   const [form, setForm] = useState(emptyForm)
+  const initialRef = useRef(initialValues)
+  const { categories, isLoading: isCategoriesLoading, error: categoryError } = useGetCategoryList(open)
+  initialRef.current = initialValues
 
   useEffect(() => {
     if (open) {
-      setForm({ ...emptyForm, ...initialValues })
+      setForm({ ...emptyForm, ...initialRef.current })
     }
-  }, [open, initialValues])
+  }, [open])
 
   const setField = (key) => (e) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }))
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onSubmit(form)
-    onOpenChange(false)
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    const selected = categories.find((item) => String(item.id) === String(form.categoryId))
+    try {
+      await onSubmit({
+        ...form,
+        category: selected?.name || "",
+      })
+      onOpenChange(false)
+    } catch {
+      // The caller stores and displays the error.
+    }
   }
 
   return (
@@ -82,19 +95,21 @@ export function ServiceFormSheet({
               <select
                 id="category"
                 className={fieldClass}
-                value={form.category}
-                onChange={setField("category")}
+                value={form.categoryId}
+                onChange={setField("categoryId")}
                 required
+                disabled={isCategoriesLoading || isSubmitting}
               >
                 <option value="" disabled>
-                  Pilih kategori
+                  {isCategoriesLoading ? "Memuat kategori..." : "Pilih kategori"}
                 </option>
-                {serviceCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
                   </option>
                 ))}
               </select>
+              {categoryError ? <p className="text-xs text-destructive">{categoryError}</p> : null}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -177,12 +192,13 @@ export function ServiceFormSheet({
           </SheetBody>
 
           <SheetFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            {error ? <p className="text-sm text-destructive sm:mr-auto">{error}</p> : null}
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Batal
             </Button>
-            <Button type="submit" className="gap-2">
+            <Button type="submit" className="gap-2" disabled={isSubmitting || isCategoriesLoading}>
               {submitIcon ? <Plus className="h-4 w-4" /> : null}
-              {submitLabel}
+              {isSubmitting ? "Menyimpan..." : submitLabel}
             </Button>
           </SheetFooter>
         </form>

@@ -8,6 +8,7 @@ import {
   Pencil,
   PiggyBank,
   Receipt,
+  Trash2,
   TrendingUp,
   Users,
   Wallet,
@@ -15,13 +16,22 @@ import {
 import {
   computeProfit,
   formatRupiah,
-  getServiceById,
-  updateService,
 } from "@/lib/services-data"
+import { useDeleteService } from "@/pages/services/hooks/useDeleteService"
+import { useEditService } from "@/pages/services/hooks/useEditService"
+import { useGetServiceDetail } from "@/pages/services/hooks/useGetServiceDetail"
 import { ServiceFormSheet } from "@/components/services/service-form-sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { StatusBadge } from "@/components/shared/status-badge"
 
 function InfoRow({ icon: Icon, label, value }) {
@@ -53,13 +63,38 @@ function ProfitRow({ label, value, hint, strong }) {
 export default function ServiceDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const service = getServiceById(id)
+  const { service, isLoading, error, reload } = useGetServiceDetail(id)
+  const { editService, isSubmitting, error: saveError, clearError } = useEditService()
+  const {
+    deleteService,
+    isDeleting,
+    error: deleteError,
+    clearError: clearDeleteError,
+  } = useDeleteService()
   const [editOpen, setEditOpen] = useState(false)
-  const [, forceUpdate] = useState(0)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
-  function handleUpdate(form) {
-    updateService(id, form)
-    forceUpdate((n) => n + 1)
+  async function handleUpdate(form) {
+    await editService(id, form)
+    reload()
+  }
+
+  async function handleDelete() {
+    try {
+      await deleteService(id)
+      setDeleteOpen(false)
+      navigate("/services")
+    } catch {
+      // The hook stores the message shown in the dialog.
+    }
+  }
+
+  if (isLoading && !service) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
   }
 
   if (!service) {
@@ -67,7 +102,7 @@ export default function ServiceDetailPage() {
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <p className="text-lg font-semibold">Layanan tidak ditemukan</p>
         <p className="text-sm text-muted-foreground">
-          Data layanan yang Anda cari tidak tersedia.
+          {error || "Data layanan yang Anda cari tidak tersedia."}
         </p>
         <Button variant="outline" onClick={() => navigate("/services")}>
           <ArrowLeft className="h-4 w-4" />
@@ -77,7 +112,7 @@ export default function ServiceDetailPage() {
     )
   }
 
-  const profit = computeProfit(service)
+  const profit = service.profit || computeProfit(service)
 
   const summary = [
     { label: "Harga", value: service.price, icon: DollarSign },
@@ -97,10 +132,30 @@ export default function ServiceDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Kembali
         </Button>
-        <Button variant="outline" className="gap-2" onClick={() => setEditOpen(true)}>
-          <Pencil className="h-4 w-4" />
-          Edit Service
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2 text-destructive hover:text-destructive"
+            onClick={() => {
+              clearDeleteError()
+              setDeleteOpen(true)
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Service
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              clearError()
+              setEditOpen(true)
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+            Edit Service
+          </Button>
+        </div>
       </div>
 
       <Card className="shadow-none">
@@ -237,7 +292,7 @@ export default function ServiceDetailPage() {
               <span>
                 Estimasi total keuntungan dari layanan ini:{" "}
                 <span className="font-semibold text-foreground">
-                  {formatRupiah(profit.netProfit * service.bookings)}
+                  {service.totalEstimatedProfitFormatted}
                 </span>{" "}
                 dari {service.bookings.toLocaleString("id-ID")} booking.
               </span>
@@ -255,7 +310,7 @@ export default function ServiceDetailPage() {
         submitIcon={false}
         initialValues={{
           name: service.name,
-          category: service.category,
+          categoryId: service.categoryId ? String(service.categoryId) : "",
           duration: String(service.duration).replace(/\D/g, ""),
           price: String(service.priceValue || ""),
           description: service.description,
@@ -264,7 +319,30 @@ export default function ServiceDetailPage() {
           operationalCost: String(service.operationalCost ?? ""),
         }}
         onSubmit={handleUpdate}
+        isSubmitting={isSubmitting}
+        error={saveError}
       />
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus layanan?</DialogTitle>
+            <DialogDescription>
+              Layanan <span className="font-medium text-foreground">{service.name}</span> akan
+              dihapus. Tindakan ini tidak bisa dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError ? <p className="text-sm text-destructive">{deleteError}</p> : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={isDeleting}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Menghapus..." : "Hapus"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

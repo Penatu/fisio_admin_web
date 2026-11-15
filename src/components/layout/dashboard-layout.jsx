@@ -17,7 +17,7 @@ export function DashboardLayout() {
   return (
     <div className="flex min-h-screen bg-background">
       <AppSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <SidebarToggle collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
           <Separator orientation="vertical" className="h-4" />

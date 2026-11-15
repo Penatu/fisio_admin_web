@@ -11,16 +11,11 @@ import {
   Hash,
   Pencil,
   Receipt,
-  Upload,
   User,
-  X,
 } from "lucide-react"
-import {
-  getPaymentById,
-  paymentMethodColors,
-  PAYMENT_STATUS_OPTIONS,
-  updatePaymentStatus,
-} from "@/lib/payments-data"
+import { paymentMethodColors } from "@/lib/payments-data"
+import { useGetPaymentDetail } from "@/pages/payments/hooks/useGetPaymentDetail"
+import { useUpdatePaymentStatus } from "@/pages/payments/hooks/useUpdatePaymentStatus"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -68,24 +63,45 @@ function AmountRow({ label, value, strong }) {
   )
 }
 
+const UPDATE_STATUS_OPTIONS = [
+  {
+    value: "paid",
+    label: "Paid",
+    description: "Pembayaran diterima.",
+    dot: "bg-emerald-500",
+  },
+  {
+    value: "rejected",
+    label: "Rejected",
+    description: "Pembayaran ditolak.",
+    dot: "bg-red-500",
+  },
+]
+
 export default function PaymentDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const payment = getPaymentById(id)
+  const { payment, isLoading, error, reload } = useGetPaymentDetail(id)
+  const { updateStatus, isSubmitting, error: saveError, clearError } = useUpdatePaymentStatus()
   const [proofOpen, setProofOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
-  const [, forceUpdate] = useState(0)
-
   const [statusValue, setStatusValue] = useState("")
   const [note, setNote] = useState("")
-  const [proof, setProof] = useState(null)
+
+  if (isLoading && !payment) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
 
   if (!payment) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <p className="text-lg font-semibold">Pembayaran tidak ditemukan</p>
         <p className="text-sm text-muted-foreground">
-          Data pembayaran yang Anda cari tidak tersedia.
+          {error || "Data pembayaran yang Anda cari tidak tersedia."}
         </p>
         <Button variant="outline" onClick={() => navigate("/payments")}>
           <ArrowLeft className="h-4 w-4" />
@@ -96,42 +112,27 @@ export default function PaymentDetailPage() {
   }
 
   function openEdit() {
-    setStatusValue(payment.status)
+    const currentStatus = payment.status === "paid" || payment.status === "rejected" ? payment.status : ""
+    setStatusValue(currentStatus)
     setNote("")
-    setProof(payment.transferProof)
+    clearError()
     setEditOpen(true)
   }
 
-  function handleProofUpload(e) {
-    const file = e.target.files?.[0]
-    if (file) {
-      setProof({
-        name: file.name,
-        uploadedAt: new Date().toLocaleString("en-US", {
-          month: "short",
-          day: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }),
-        image: URL.createObjectURL(file),
+  async function handleSave() {
+    try {
+      await updateStatus(payment.code, {
+        status: statusValue,
+        note: note.trim(),
       })
+      setEditOpen(false)
+      reload()
+    } catch {
+      // Error is shown from the update hook.
     }
   }
 
-  function handleSave() {
-    updatePaymentStatus(id, {
-      status: statusValue,
-      note: note.trim(),
-      transferProof: statusValue === "paid" ? proof : payment.transferProof,
-    })
-    forceUpdate((n) => n + 1)
-    setEditOpen(false)
-  }
-
-  const paidRequiresProof = statusValue === "paid" && !proof
-  const canSave = !!statusValue && !paidRequiresProof
+  const canSave = (statusValue === "paid" || statusValue === "rejected") && !isSubmitting
   const transferProof = payment.transferProof
 
   return (
@@ -157,9 +158,11 @@ export default function PaymentDetailPage() {
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="font-mono text-xl font-bold tracking-tight">{payment.invoice}</h1>
               <StatusBadge status={payment.status} />
-              <Badge variant={paymentMethodColors[payment.method] || "secondary"}>
-                {payment.method}
-              </Badge>
+              {payment.methodLabel ? (
+                <Badge variant={paymentMethodColors[payment.methodLabel] || "secondary"}>
+                  {payment.methodLabel}
+                </Badge>
+              ) : null}
             </div>
             <p className="text-sm text-muted-foreground">
               {payment.patient} • {payment.date}
@@ -180,10 +183,25 @@ export default function PaymentDetailPage() {
           <CardContent className="grid gap-5 sm:grid-cols-2">
             <InfoRow icon={Receipt} label="Invoice" value={payment.invoice} />
             <InfoRow icon={Hash} label="ID Transaksi" value={payment.transactionId} />
-            <InfoRow icon={ClipboardList} label="Kode Booking" value={payment.booking} />
+            <InfoRow icon={ClipboardList} label="Kode Booking" value={payment.bookingCode || "-"} />
             <InfoRow icon={User} label="Pasien" value={payment.patient} />
-            <InfoRow icon={CreditCard} label="Metode Pembayaran" value={payment.method} />
+            <InfoRow icon={CreditCard} label="Metode Pembayaran" value={payment.methodLabel || "-"} />
             <InfoRow icon={CalendarDays} label="Dibayar Pada" value={payment.paidAt} />
+            {payment.bankName !== "-" ? (
+              <InfoRow icon={CreditCard} label="Bank" value={payment.bankName} />
+            ) : null}
+            {payment.accountNumber !== "-" ? (
+              <InfoRow
+                icon={Hash}
+                label="Rekening"
+                value={`${payment.accountNumber}${payment.accountName !== "-" ? ` • ${payment.accountName}` : ""}`}
+              />
+            ) : null}
+            {payment.notes?.trim() ? (
+              <div className="sm:col-span-2">
+                <InfoRow icon={FileText} label="Catatan" value={payment.notes} />
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -269,7 +287,7 @@ export default function PaymentDetailPage() {
           <SheetHeader>
             <SheetTitle>Update Status Pembayaran</SheetTitle>
             <SheetDescription>
-              Ubah status pembayaran dan unggah bukti transfer bila perlu.
+              Ubah status menjadi Paid atau Rejected.
             </SheetDescription>
           </SheetHeader>
 
@@ -277,7 +295,7 @@ export default function PaymentDetailPage() {
             <div className="space-y-2">
               <Label>Status Pembayaran</Label>
               <div className="grid gap-2">
-                {PAYMENT_STATUS_OPTIONS.map((option) => {
+                {UPDATE_STATUS_OPTIONS.map((option) => {
                   const selected = statusValue === option.value
                   return (
                     <button
@@ -304,46 +322,6 @@ export default function PaymentDetailPage() {
               </div>
             </div>
 
-            {statusValue === "paid" ? (
-              <div className="space-y-2">
-                <Label htmlFor="transfer-proof">
-                  Bukti Transfer <span className="text-destructive">*</span>
-                </Label>
-                {proof ? (
-                  <div className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm">
-                    <span className="inline-flex items-center gap-2 truncate">
-                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{proof.name}</span>
-                    </span>
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => setProof(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-6 text-sm text-muted-foreground transition-colors hover:bg-muted/50">
-                    <Upload className="h-4 w-4" />
-                    Pilih file untuk diupload
-                    <input
-                      id="transfer-proof"
-                      type="file"
-                      accept="image/*,application/pdf"
-                      className="hidden"
-                      onChange={handleProofUpload}
-                    />
-                  </label>
-                )}
-                {paidRequiresProof ? (
-                  <p className="text-xs text-destructive">
-                    Bukti transfer wajib diupload untuk status Paid.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
             <div className="space-y-2">
               <Label htmlFor="note">Catatan</Label>
               <Textarea
@@ -353,14 +331,16 @@ export default function PaymentDetailPage() {
                 onChange={(e) => setNote(e.target.value)}
               />
             </div>
+
+            {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
           </SheetBody>
 
           <SheetFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={isSubmitting}>
               Batal
             </Button>
             <Button onClick={handleSave} disabled={!canSave}>
-              Simpan Perubahan
+              {isSubmitting ? "Menyimpan..." : "Simpan Perubahan"}
             </Button>
           </SheetFooter>
         </SheetContent>

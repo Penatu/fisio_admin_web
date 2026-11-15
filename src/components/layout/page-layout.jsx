@@ -15,6 +15,7 @@ import {
 export function PageLayout({
   title,
   stats = [],
+  summary,
   searchPlaceholder,
   statusFilters = [],
   paymentFilters = [],
@@ -43,13 +44,24 @@ export function PageLayout({
         {headerActions}
       </div>
 
-      {stats.length > 0 && (
+      {summary ? (
+        <div className="grid items-stretch gap-4 md:grid-cols-[240px_minmax(0,1fr)]">
+          {stats.length > 0 ? (
+            <div className="grid gap-4">
+              {stats.map((stat) => (
+                <StatCard key={stat.title} {...stat} />
+              ))}
+            </div>
+          ) : null}
+          <div className="min-w-0">{summary}</div>
+        </div>
+      ) : stats.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => (
             <StatCard key={stat.title} {...stat} />
           ))}
         </div>
-      )}
+      ) : null}
 
       <Card className="shadow-none">
         <CardContent className="p-4">

@@ -16,6 +16,10 @@ import BookingDetailPage from "@/pages/bookings/booking-detail"
 import PaymentsPage from "@/pages/payments"
 import PaymentDetailPage from "@/pages/payments/payment-detail"
 import ReportsPage from "@/pages/reports"
+import RevenueReportPage from "@/pages/reports/revenue"
+import OccupancyReportPage from "@/pages/reports/occupancy"
+import PayrollReportPage from "@/pages/reports/payroll"
+import PayrollDetailPage from "@/pages/reports/payroll-detail"
 import ReportDetailPage from "@/pages/reports/report-detail"
 import LoginPage from "@/pages/auth/login"
 
@@ -43,6 +47,10 @@ function App() {
             <Route path="payments" element={<PaymentsPage />} />
             <Route path="payments/:id" element={<PaymentDetailPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="reports/revenue" element={<RevenueReportPage />} />
+            <Route path="reports/occupancy" element={<OccupancyReportPage />} />
+            <Route path="reports/payroll" element={<PayrollReportPage />} />
+            <Route path="reports/payroll/:id" element={<PayrollDetailPage />} />
             <Route path="reports/:type/:id" element={<ReportDetailPage />} />
           </Route>
         </Route>

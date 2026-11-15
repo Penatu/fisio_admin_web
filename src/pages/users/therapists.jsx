@@ -1,37 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { CheckCircle, Clock, Eye, Pencil, Star, Users } from "lucide-react";
+import { Eye, Pencil, Users } from "lucide-react";
 import { PageLayout } from "@/components/layout/page-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useGetTherapist } from "@/pages/users/hooks/useGetTherapist";
-
-const stats = [
-  {
-    title: "Total Therapists",
-    value: "48",
-    description: "42 active, 6 inactive",
-    icon: Users,
-  },
-  {
-    title: "Available Today",
-    value: "32",
-    description: "67% availability rate",
-    icon: CheckCircle,
-  },
-  {
-    title: "Avg. Rating",
-    value: "4.8",
-    description: "Based on 1,240 reviews",
-    icon: Star,
-  },
-  {
-    title: "Pending Verification",
-    value: "5",
-    description: "Awaiting document review",
-    icon: Clock,
-  },
-];
 
 const STATUS_FILTERS = [
   { label: "Inactive", value: "inactive" },
@@ -109,6 +82,15 @@ export default function TherapistsPage() {
   } = useGetTherapist();
 
   const goToDetail = (code) => navigate(`/users/therapists/${code}`);
+
+  const stats = [
+    {
+      title: "Total Therapists",
+      value: Number(pagination.total || 0).toLocaleString("en-US"),
+      description: "Semua therapist",
+      icon: Users,
+    },
+  ];
 
   const columns = [
     {

@@ -1,12 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import {
-  CalendarCheck,
-  CalendarClock,
-  CalendarX,
-  ClipboardList,
-  Eye,
-  Pencil,
-} from "lucide-react";
+import { ClipboardList, Eye, Pencil } from "lucide-react";
+import { BookingStatusSummary } from "@/components/bookings/booking-status-summary";
 import { PageLayout } from "@/components/layout/page-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -68,24 +62,6 @@ export default function BookingsPage() {
       value: formatCount(summary.totalBookings),
       description: "Semua booking",
       icon: ClipboardList,
-    },
-    {
-      title: "Confirmed",
-      value: formatCount(summary.confirmed),
-      description: "Booking terkonfirmasi",
-      icon: CalendarCheck,
-    },
-    {
-      title: "Pending",
-      value: formatCount(summary.pending),
-      description: "Menunggu konfirmasi",
-      icon: CalendarClock,
-    },
-    {
-      title: "Cancelled",
-      value: formatCount(summary.cancelled),
-      description: "Booking dibatalkan",
-      icon: CalendarX,
     },
   ];
 
@@ -153,6 +129,7 @@ export default function BookingsPage() {
     <PageLayout
       title="Booking List"
       stats={stats}
+      summary={<BookingStatusSummary summary={summary} />}
       searchPlaceholder="Cari booking..."
       statusFilters={STATUS_FILTERS}
       paymentFilters={PAYMENT_FILTERS}
