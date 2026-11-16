@@ -1,16 +1,13 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Check, Plus } from "lucide-react"
-import {
-  getUnpaidPayrollBookings,
-  markBookingsPayrollPaid,
-  parsePriceValue,
-} from "@/lib/bookings-data"
-import { createPayroll, formatPayrollAmount } from "@/lib/reports-data"
-import { therapists } from "@/lib/therapists-data"
+import { formatPayrollAmount, formatPayrollDate } from "@/lib/reports-data"
+import { useCreatePayroll } from "@/pages/reports/hooks/useCreatePayroll"
+import { useGetOutstandingPayroll } from "@/pages/reports/hooks/useGetOutstandingPayroll"
+import { useGetPayrollTherapists } from "@/pages/reports/hooks/useGetPayrollTherapists"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
+import { Autocomplete } from "@/components/ui/autocomplete"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -24,109 +21,70 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 
-const fieldClass =
-  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-
-const PAYMENT_METHODS = ["Bank Transfer", "E-Wallet", "Cash"]
-
 export function CreatePayrollSheet({ open, onOpenChange, onCreated }) {
-  const [therapistId, setTherapistId] = useState("")
-  const [period, setPeriod] = useState("19–25 Jul 2026")
-  const [sharePct, setSharePct] = useState("60")
-  const [paymentMethod, setPaymentMethod] = useState("Bank Transfer")
-  const [bankAccount, setBankAccount] = useState("")
-  const [status, setStatus] = useState("unpaid")
+  const [therapist, setTherapist] = useState(null)
+  const [therapistSearch, setTherapistSearch] = useState("")
   const [notes, setNotes] = useState("")
   const [selectedIds, setSelectedIds] = useState([])
-
-  const unpaidBookings = useMemo(
-    () => getUnpaidPayrollBookings(therapistId || undefined),
-    [therapistId, open]
-  )
-
-  const selectedTherapist = therapists.find(
-    (t) => String(t.id) === String(therapistId)
-  )
+  const therapistCode = therapist?.code || ""
+  const { therapists, isLoading: isTherapistsLoading, error: therapistsError } =
+    useGetPayrollTherapists(open, therapistSearch)
+  const {
+    items: unpaidItems,
+    isLoading: isOutstandingLoading,
+    error: outstandingError,
+  } = useGetOutstandingPayroll(open ? therapistCode : "")
+  const { createPayroll, isSubmitting, error: submitError, clearError } = useCreatePayroll()
 
   useEffect(() => {
     if (!open) return
-    setTherapistId("")
-    setPeriod("19–25 Jul 2026")
-    setSharePct("60")
-    setPaymentMethod("Bank Transfer")
-    setBankAccount("")
-    setStatus("unpaid")
+    setTherapist(null)
+    setTherapistSearch("")
     setNotes("")
     setSelectedIds([])
-  }, [open])
+    clearError()
+  }, [open, clearError])
 
   useEffect(() => {
-    if (selectedTherapist) {
-      setBankAccount(selectedTherapist.bankAccount || "")
-      setSharePct("60")
-    } else {
-      setBankAccount("")
-    }
     setSelectedIds([])
-  }, [therapistId])
+  }, [therapistCode])
 
-  const selectedBookings = unpaidBookings.filter((b) =>
-    selectedIds.includes(b.id)
-  )
+  const selectedItems = unpaidItems.filter((item) => selectedIds.includes(item.code))
+  const bankAccount = therapist?.bankAccount || ""
+  const paymentMethod = therapist?.paymentMethod || ""
+  const totalGross = selectedItems.reduce((sum, item) => sum + item.grossValue, 0)
+  const totalPayout = selectedItems.reduce((sum, item) => sum + item.payoutValue, 0)
+  const canSubmit = Boolean(therapistCode && selectedIds.length > 0 && !isSubmitting)
 
-  const totalGross = selectedBookings.reduce(
-    (sum, b) => sum + parsePriceValue(b),
-    0
-  )
-  const effectiveShare = Number(sharePct) || 0
-  const totalPayout = selectedBookings.reduce((sum, b) => {
-    const price = parsePriceValue(b)
-    return sum + Math.round((price * effectiveShare) / 100)
-  }, 0)
-
-  function toggleBooking(id) {
+  function toggleBooking(code) {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(code) ? prev.filter((item) => item !== code) : [...prev, code]
     )
   }
 
   function toggleAll() {
-    if (selectedIds.length === unpaidBookings.length) {
+    if (selectedIds.length === unpaidItems.length) {
       setSelectedIds([])
     } else {
-      setSelectedIds(unpaidBookings.map((b) => b.id))
+      setSelectedIds(unpaidItems.map((item) => item.code))
     }
   }
 
-  const canSubmit =
-    therapistId &&
-    selectedIds.length > 0 &&
-    bankAccount.trim() &&
-    period.trim()
-
-  function handleSubmit(e) {
-    e.preventDefault()
+  async function handleSubmit(event) {
+    event.preventDefault()
     if (!canSubmit) return
 
-    const payroll = createPayroll({
-      therapistId,
-      therapistName: selectedTherapist?.name || "Therapist",
-      period,
-      sharePct: effectiveShare,
-      paymentMethod,
-      bankAccount,
-      status,
-      notes,
-      bookingIds: selectedIds,
-      totalPayout,
-    })
-
-    if (status === "paid") {
-      markBookingsPayrollPaid(selectedIds)
+    try {
+      const payroll = await createPayroll({
+        payrollCodes: selectedIds,
+        therapistCode,
+        note: notes.trim(),
+      })
+      onCreated?.(payroll)
+      onOpenChange(false)
+    } catch {
+      // The hook stores the message shown in the sheet.
     }
-
-    onCreated?.(payroll)
-    onOpenChange(false)
   }
 
   return (
@@ -144,84 +102,88 @@ export function CreatePayrollSheet({ open, onOpenChange, onCreated }) {
           <SheetBody className="space-y-5 py-6">
             <div className="space-y-2">
               <Label htmlFor="therapist">Terapis</Label>
-              <select
+              <Autocomplete
                 id="therapist"
-                className={fieldClass}
-                value={therapistId}
-                onChange={(e) => setTherapistId(e.target.value)}
-                required
-              >
-                <option value="" disabled>
-                  Pilih terapis
-                </option>
-                {therapists.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+                inputValue={therapistSearch}
+                onInputChange={setTherapistSearch}
+                options={therapists}
+                value={therapist}
+                onValueChange={setTherapist}
+                getOptionValue={(item) => item.code}
+                getOptionLabel={(item) => item.name}
+                placeholder="Cari nama terapis..."
+                emptyText="Tidak ada terapis yang cocok."
+                loadingText="Memuat terapis..."
+                loading={isTherapistsLoading}
+                disabled={isSubmitting}
+                error={therapistsError}
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="period">Periode</Label>
-                <Input
-                  id="period"
-                  value={period}
-                  onChange={(e) => setPeriod(e.target.value)}
-                  required
-                />
+            {therapistCode ? (
+              <div className="grid grid-cols-2 gap-3 rounded-lg border bg-muted/30 p-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">No. Rekening</p>
+                  <p className="text-sm font-medium">{bankAccount || "-"}</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Metode Pembayaran</p>
+                  <p className="text-sm font-medium">{paymentMethod || "-"}</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="share">Bagi Hasil (%)</Label>
-                <Input
-                  id="share"
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={sharePct}
-                  onChange={(e) => setSharePct(e.target.value)}
-                />
-              </div>
-            </div>
+            ) : null}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Booking Belum Dibayar</Label>
-                {unpaidBookings.length > 0 ? (
+                {unpaidItems.length > 0 ? (
                   <button
                     type="button"
                     onClick={toggleAll}
                     className="text-xs font-medium text-primary hover:underline"
+                    disabled={isSubmitting}
                   >
-                    {selectedIds.length === unpaidBookings.length
+                    {selectedIds.length === unpaidItems.length
                       ? "Batalkan semua"
                       : "Pilih semua"}
                   </button>
                 ) : null}
               </div>
 
-              {!therapistId ? (
+              {!therapistCode ? (
                 <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
                   Pilih terapis terlebih dahulu untuk melihat booking yang belum
                   dibayar.
                 </p>
-              ) : unpaidBookings.length === 0 ? (
+              ) : isOutstandingLoading ? (
+                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
+                  Memuat tagihan...
+                </p>
+              ) : outstandingError ? (
+                <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-destructive">
+                  {outstandingError}
+                </p>
+              ) : unpaidItems.length === 0 ? (
                 <p className="rounded-lg border border-dashed px-3 py-6 text-center text-sm text-muted-foreground">
                   Tidak ada booking belum dibayar untuk terapis ini.
                 </p>
               ) : (
                 <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-2">
-                  {unpaidBookings.map((booking) => {
-                    const checked = selectedIds.includes(booking.id)
-                    const payout = Math.round(
-                      (parsePriceValue(booking) * effectiveShare) / 100
-                    )
+                  {unpaidItems.map((booking) => {
+                    const checked = selectedIds.includes(booking.code)
+                    const meta = [
+                      booking.date ? formatPayrollDate(booking.date) : "",
+                      booking.time,
+                      booking.priceLabel,
+                    ]
+                      .filter(Boolean)
+                      .join(" • ")
                     return (
                       <button
-                        key={booking.id}
+                        key={booking.code}
                         type="button"
-                        onClick={() => toggleBooking(booking.id)}
+                        onClick={() => toggleBooking(booking.code)}
+                        disabled={isSubmitting}
                         className={cn(
                           "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
                           checked
@@ -244,7 +206,7 @@ export function CreatePayrollSheet({ open, onOpenChange, onCreated }) {
                             <span className="font-mono text-xs font-medium">
                               {booking.code}
                             </span>
-                            <StatusBadge status={booking.payment} />
+                            {booking.payment ? <StatusBadge status={booking.payment} /> : null}
                             {booking.payment === "unpaid" ? (
                               <Badge variant="warning">Patient unpaid</Badge>
                             ) : null}
@@ -252,11 +214,11 @@ export function CreatePayrollSheet({ open, onOpenChange, onCreated }) {
                           <p className="text-sm font-medium">
                             {booking.patient} • {booking.service}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {booking.date} • {booking.time} • {booking.price}
-                          </p>
+                          {meta ? (
+                            <p className="text-xs text-muted-foreground">{meta}</p>
+                          ) : null}
                           <p className="text-xs font-medium text-foreground">
-                            Payout terapis: {formatPayrollAmount(payout)}
+                            Payout terapis: {booking.payoutLabel || formatPayrollAmount(booking.payoutValue)}
                           </p>
                         </div>
                       </button>
@@ -278,53 +240,10 @@ export function CreatePayrollSheet({ open, onOpenChange, onCreated }) {
                 </p>
               </div>
               <div className="col-span-2">
-                <p className="text-xs text-muted-foreground">
-                  Total Payout Terapis ({effectiveShare}%)
-                </p>
+                <p className="text-xs text-muted-foreground">Total Payout Terapis</p>
                 <p className="text-lg font-bold tracking-tight">
                   {formatPayrollAmount(totalPayout)}
                 </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="bank">No. Rekening</Label>
-              <Input
-                id="bank"
-                value={bankAccount}
-                onChange={(e) => setBankAccount(e.target.value)}
-                placeholder="Bank - nomor rekening a.n. nama"
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="method">Metode Pembayaran</Label>
-                <select
-                  id="method"
-                  className={fieldClass}
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                >
-                  {PAYMENT_METHODS.map((method) => (
-                    <option key={method} value={method}>
-                      {method}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="status">Status Payroll</Label>
-                <select
-                  id="status"
-                  className={fieldClass}
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="unpaid">Unpaid</option>
-                  <option value="paid">Paid</option>
-                </select>
               </div>
             </div>
 
@@ -335,18 +254,26 @@ export function CreatePayrollSheet({ open, onOpenChange, onCreated }) {
                 rows={3}
                 placeholder="Catatan tambahan untuk payroll ini..."
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(event) => setNotes(event.target.value)}
+                disabled={isSubmitting}
               />
             </div>
           </SheetBody>
 
+          {submitError ? <p className="px-6 text-sm text-destructive">{submitError}</p> : null}
+
           <SheetFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
               Batal
             </Button>
             <Button type="submit" className="gap-2" disabled={!canSubmit}>
               <Plus className="h-4 w-4" />
-              Buat Payroll
+              {isSubmitting ? "Menyimpan..." : "Buat Payroll"}
             </Button>
           </SheetFooter>
         </form>

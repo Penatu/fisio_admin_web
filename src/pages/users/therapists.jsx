@@ -172,7 +172,6 @@ export default function TherapistsPage() {
       columns={columns}
       data={therapists}
       onRowClick={(row) => goToDetail(row.code)}
-      showDatePicker={false}
       isLoading={isLoading}
       error={error}
       emptyMessage="Tidak ada therapist."

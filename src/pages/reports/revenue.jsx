@@ -1,7 +1,6 @@
 import { useState } from "react"
-import { Calendar, ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { AreaChart } from "@/components/reports/area-chart"
-import { ChangeBadge } from "@/components/reports/change-badge"
 import { DateRangeFilter, getPresetRange } from "@/components/reports/date-range-filter"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,22 +17,6 @@ const CHART_PERIODS = [
   { label: "Week", value: "week" },
   { label: "Month", value: "month" },
 ]
-
-const FILTERS = {
-  compare: "Previous period",
-  service: "All Services",
-  therapist: "All Therapists",
-  location: "All Locations",
-}
-
-function FilterChip({ label }) {
-  return (
-    <Button variant="outline" className="h-9 gap-2 font-normal">
-      {label}
-      <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-    </Button>
-  )
-}
 
 export default function RevenueReportPage() {
   const [range, setRange] = useState(() => getPresetRange("last7"))
@@ -53,16 +36,7 @@ export default function RevenueReportPage() {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <DateRangeFilter value={range} onChange={setRange} />
-        <Button variant="outline" className="h-9 gap-2 bg-foreground text-background hover:bg-foreground/90 hover:text-background">
-          <Calendar className="h-4 w-4" />
-          {FILTERS.compare}
-        </Button>
-        <FilterChip label={FILTERS.service} />
-        <FilterChip label={FILTERS.therapist} />
-        <FilterChip label={FILTERS.location} />
-      </div>
+      <DateRangeFilter value={range} onChange={setRange} />
 
       <div className="grid gap-4 md:grid-cols-3">
         {metrics.map((metric) => (
@@ -70,7 +44,6 @@ export default function RevenueReportPage() {
             <CardContent className="space-y-3 p-5">
               <p className="text-sm text-muted-foreground">{metric.label}</p>
               <p className="text-3xl font-bold tracking-tight">{metric.value}</p>
-              <ChangeBadge change={metric.change} label={metric.changeLabel} />
             </CardContent>
           </Card>
         ))}

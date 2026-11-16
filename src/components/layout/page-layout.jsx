@@ -19,7 +19,7 @@ export function PageLayout({
   searchPlaceholder,
   statusFilters = [],
   paymentFilters = [],
-  showDatePicker = true,
+  paymentFilterLabel = "Payment Status",
   showExport = true,
   columns = [],
   data = [],
@@ -69,7 +69,7 @@ export function PageLayout({
             searchPlaceholder={searchPlaceholder}
             statusFilters={statusFilters}
             paymentFilters={paymentFilters}
-            showDatePicker={showDatePicker}
+            paymentFilterLabel={paymentFilterLabel}
             showExport={showExport}
             searchValue={searchValue}
             onSearchChange={onSearchChange}

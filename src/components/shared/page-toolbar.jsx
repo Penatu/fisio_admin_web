@@ -1,4 +1,4 @@
-import { Calendar, Download, Eye, LayoutGrid, Pencil, Plus, Search } from "lucide-react"
+import { Download, Eye, Pencil, Plus, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -24,7 +24,7 @@ export function PageToolbar({
   searchPlaceholder = "Filter...",
   statusFilters = [],
   paymentFilters = [],
-  showDatePicker = true,
+  paymentFilterLabel = "Payment Status",
   showExport = true,
   searchValue = "",
   onSearchChange,
@@ -36,12 +36,6 @@ export function PageToolbar({
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-1 flex-wrap items-center gap-2">
-        {showDatePicker && (
-          <Button variant="outline" className="h-9 gap-2 font-normal">
-            <Calendar className="h-4 w-4" />
-            Jul 24, 2026
-          </Button>
-        )}
         <div className="relative min-w-[200px] flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -99,11 +93,11 @@ export function PageToolbar({
                       paymentFilters.find((filter) => filterValue(filter) === selectedPayment) ||
                         selectedPayment
                     )
-                  : "Payment Status"}
+                  : paymentFilterLabel}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuLabel>Payment Status</DropdownMenuLabel>
+              <DropdownMenuLabel>{paymentFilterLabel}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {onPaymentChange ? (
                 <DropdownMenuRadioGroup
@@ -112,14 +106,18 @@ export function PageToolbar({
                 >
                   <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
                   {paymentFilters.map((filter) => (
-                    <DropdownMenuRadioItem key={filterValue(filter)} value={filterValue(filter)}>
+                    <DropdownMenuRadioItem
+                      key={filterValue(filter)}
+                      value={filterValue(filter)}
+                      disabled={Boolean(filter.disabled)}
+                    >
                       {filterLabel(filter)}
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
               ) : (
                 paymentFilters.map((filter) => (
-                  <DropdownMenuCheckboxItem key={filterValue(filter)} defaultChecked>
+                  <DropdownMenuCheckboxItem key={filterValue(filter)} defaultChecked disabled={Boolean(filter.disabled)}>
                     {filterLabel(filter)}
                   </DropdownMenuCheckboxItem>
                 ))
@@ -135,10 +133,6 @@ export function PageToolbar({
             Export Excel
           </Button>
         )}
-        <Button variant="outline" className="h-9 gap-2">
-          <LayoutGrid className="h-4 w-4" />
-          View
-        </Button>
       </div>
     </div>
   )

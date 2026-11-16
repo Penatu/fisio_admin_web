@@ -26,4 +26,10 @@ export const ENDPOINTS = {
   CREATE_ADMIN: `${API_BASE_URL}/user-management`,
   DELETE_ADMIN: `${API_BASE_URL}/user-management/:code`,
   GET_REPORTS_REVENUE: `${API_BASE_URL}/reports/revenue`,
+  GER_REPORTS_OCCUPANCY: `${API_BASE_URL}/reports/occupancy`,
+  PAYROLL_GET_THERAPIST_LIST: `${API_BASE_URL}/reports/payroll/therapist-dropdown`,
+  PAYROLL_GET_OUTSTANDING_PAYROLL_BY_THERAPIST: `${API_BASE_URL}/reports/payroll/unpaid-payroll`,
+  PAYROLL_CREATE_PAYMENT: `${API_BASE_URL}/reports/payroll`,
+  PAYROLL_LIST: `${API_BASE_URL}/reports/payroll`,
+  DETAIL_PAYROLL_GET_LIST: `${API_BASE_URL}/reports/payroll/paid-payroll`,
 };

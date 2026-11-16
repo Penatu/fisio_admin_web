@@ -16,8 +16,8 @@ const STATUS_FILTERS = [
 
 const METHOD_FILTERS = [
   { label: "Bank Transfer", value: "bank_transfer" },
-  { label: "E-Wallet", value: "e_wallet" },
-  { label: "Credit Card", value: "credit_card" },
+  { label: "E-Wallet", value: "e_wallet", disabled: true },
+  { label: "Credit Card", value: "credit_card", disabled: true },
 ]
 
 function formatCount(value) {
@@ -125,7 +125,7 @@ export default function PaymentsPage() {
       searchPlaceholder="Cari invoice..."
       statusFilters={STATUS_FILTERS}
       paymentFilters={METHOD_FILTERS}
-      showDatePicker={false}
+      paymentFilterLabel="Payment Method"
       columns={columns}
       data={payments}
       isLoading={isLoading}

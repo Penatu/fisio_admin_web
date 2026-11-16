@@ -43,18 +43,22 @@ export function AreaChart({
 
   return (
     <div className={cn("w-full", className)}>
-      <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-          {currentLabel}
-        </span>
-        {previous.length ? (
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-primary/40 bg-primary/10" />
-            {previousLabel}
-          </span>
-        ) : null}
-      </div>
+      {previous.length || (currentLabel && currentLabel !== "Current period") ? (
+        <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          {currentLabel && currentLabel !== "Current period" ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+              {currentLabel}
+            </span>
+          ) : null}
+          {previous.length ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full border-2 border-dashed border-primary/40 bg-primary/10" />
+              {previousLabel}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="w-full overflow-x-auto">
         <svg

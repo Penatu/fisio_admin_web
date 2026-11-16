@@ -115,7 +115,6 @@ export default function PatientsPage() {
         onPerPageChange: setPerPage,
       }}
       onRowClick={(row) => goToDetail(row.code)}
-      showDatePicker={false}
     />
   )
 }

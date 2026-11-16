@@ -12,7 +12,6 @@ import {
   HeartPulse,
   LayoutDashboard,
   PanelLeft,
-  Settings,
   Stethoscope,
   UserCog,
   Users,
@@ -21,7 +20,6 @@ import {
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
 import {
   Collapsible,
   CollapsibleContent,
@@ -178,21 +176,6 @@ export function AppSidebar({ collapsed, onToggle }) {
             <NavItem key={item.title} item={item} collapsed={collapsed} />
           ))}
         </nav>
-
-        {!collapsed && (
-          <>
-            <p className="mb-2 mt-6 px-3 text-xs font-medium text-muted-foreground">
-              Settings
-            </p>
-            <Link
-              to="/settings"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent"
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </Link>
-          </>
-        )}
       </div>
 
       <div className="border-t p-3">

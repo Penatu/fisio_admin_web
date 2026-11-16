@@ -152,7 +152,6 @@ export default function DashboardPage() {
       searchPlaceholder="Filter bookings..."
       statusFilters={STATUS_FILTERS}
       paymentFilters={PAYMENT_FILTERS}
-      showDatePicker={false}
       columns={columns}
       data={bookings}
       isLoading={isLoading}

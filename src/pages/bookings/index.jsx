@@ -10,7 +10,7 @@ const STATUS_FILTERS = [
   { label: "New", value: "new" },
   { label: "Confirmed", value: "confirmed" },
   { label: "Visit", value: "visit" },
-  { label: "Completed", value: "completed" },
+  { label: "Finished", value: "finished" },
   { label: "Canceled", value: "canceled" },
 ];
 
@@ -133,7 +133,6 @@ export default function BookingsPage() {
       searchPlaceholder="Cari booking..."
       statusFilters={STATUS_FILTERS}
       paymentFilters={PAYMENT_FILTERS}
-      showDatePicker={false}
       columns={columns}
       data={bookings}
       isLoading={isLoading}

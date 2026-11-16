@@ -147,7 +147,6 @@ export default function ServicesPage() {
           onPerPageChange: setPerPage,
         }}
         onRowClick={(row) => goToDetail(row.id)}
-        showDatePicker={false}
         headerActions={
           <Button className="gap-2" onClick={openCreate}>
             <Plus className="h-4 w-4" />

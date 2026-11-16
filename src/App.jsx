@@ -20,7 +20,6 @@ import RevenueReportPage from "@/pages/reports/revenue"
 import OccupancyReportPage from "@/pages/reports/occupancy"
 import PayrollReportPage from "@/pages/reports/payroll"
 import PayrollDetailPage from "@/pages/reports/payroll-detail"
-import ReportDetailPage from "@/pages/reports/report-detail"
 import LoginPage from "@/pages/auth/login"
 
 function App() {
@@ -51,7 +50,6 @@ function App() {
             <Route path="reports/occupancy" element={<OccupancyReportPage />} />
             <Route path="reports/payroll" element={<PayrollReportPage />} />
             <Route path="reports/payroll/:id" element={<PayrollDetailPage />} />
-            <Route path="reports/:type/:id" element={<ReportDetailPage />} />
           </Route>
         </Route>
 

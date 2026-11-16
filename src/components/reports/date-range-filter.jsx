@@ -75,6 +75,23 @@ function formatRange(start, end) {
   return `${formatDay(start)} - ${formatDay(end)}`
 }
 
+function formatCompact(start, end) {
+  if (!start || !end) return "7 days"
+  if (isSameDay(start, end)) return formatDay(start)
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()
+  if (sameMonth) {
+    return `${start.getDate()}–${end.getDate()} ${MONTHS[end.getMonth()]}`
+  }
+  const sameYear = start.getFullYear() === end.getFullYear()
+  if (sameYear && start.getDate() === 1 && end.getDate() === endOfMonth(end).getDate()) {
+    return `${MONTHS[start.getMonth()]}–${MONTHS[end.getMonth()]}`
+  }
+  if (sameYear) {
+    return `${start.getDate()} ${MONTHS[start.getMonth()]}–${end.getDate()} ${MONTHS[end.getMonth()]}`
+  }
+  return `${formatDay(start)}–${formatDay(end)}`
+}
+
 function presetHint(id, start, end) {
   if (id === "thisMonth" || id === "lastMonth") return formatMonth(start)
   if (id === "thisQuarter" || id === "lastQuarter") return `${formatMonth(start)} - ${formatMonth(end)}`
@@ -218,11 +235,7 @@ export function DateRangeFilter({ value, onChange }) {
       }),
     []
   )
-  const selected = presets.find((preset) => preset.id === value?.id)
-  const triggerLabel =
-    value?.id === "custom" && value.start && value.end
-      ? formatRange(value.start, value.end)
-      : selected?.label || "Last 7 days"
+  const triggerLabel = formatCompact(value?.start, value?.end)
 
   function selectPreset(preset) {
     onChange({ id: preset.id, start: preset.start, end: preset.end })
@@ -248,7 +261,7 @@ export function DateRangeFilter({ value, onChange }) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="h-9 gap-2 bg-foreground text-background hover:bg-foreground/90 hover:text-background"
+          className="h-9 w-fit gap-2 px-3 bg-foreground text-background hover:bg-foreground/90 hover:text-background"
         >
           <Calendar className="h-4 w-4" />
           {triggerLabel}

@@ -136,7 +136,6 @@ export default function AdminsPage() {
         selectedStatus={status}
         onStatusChange={setStatus}
         onRowClick={(row) => goToDetail(row.code)}
-        showDatePicker={false}
         pagination={{
           ...pagination,
           onPageChange: setPage,
