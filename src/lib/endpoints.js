@@ -32,4 +32,5 @@ export const ENDPOINTS = {
   PAYROLL_CREATE_PAYMENT: `${API_BASE_URL}/reports/payroll`,
   PAYROLL_LIST: `${API_BASE_URL}/reports/payroll`,
   DETAIL_PAYROLL_GET_LIST: `${API_BASE_URL}/reports/payroll/paid-payroll`,
+  DETAIL_PAYROLL_GET_PAYSLIP: `${API_BASE_URL}/reports/payroll/therapist-payroll/:therapistCode`,
 };

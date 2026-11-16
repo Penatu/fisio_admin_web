@@ -106,7 +106,7 @@ export function useGetPaidPayroll(therapistCode) {
         }
 
         if (!response.ok || !body?.success) {
-          throw new Error(body?.message || body?.messageTitle || "Gagal memuat detail payroll.")
+          throw new Error(body?.message || body?.messageTitle || "Gagal memuat daftar payroll.")
         }
 
         if (!active) return
@@ -117,7 +117,7 @@ export function useGetPaidPayroll(therapistCode) {
         if (!active || err.name === "AbortError") return
         setPayrolls([])
         setPagination(EMPTY_PAGINATION)
-        setError(err.message || "Gagal memuat detail payroll.")
+        setError(err.message || "Gagal memuat daftar payroll.")
       } finally {
         if (active) setIsLoading(false)
       }
